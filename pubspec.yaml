@@ -1,0 +1,28 @@
+name: cf_monitor_app
+description: CF Server Monitor 的 iOS / Android 客户端。
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.12.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_riverpod: ^2.6.1
+  dio: ^5.9.2
+  web_socket_channel: ^3.0.3
+  flutter_secure_storage: ^9.2.4
+  shared_preferences: ^2.5.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/licenses/CF-Server-Monitor.txt
