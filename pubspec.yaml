@@ -1,7 +1,7 @@
 name: cf_monitor_app
 description: CF Server Monitor 的 iOS / Android 客户端。
 publish_to: none
-version: 0.1.0+1
+version: 1.0.0+4
 
 environment:
   sdk: ^3.12.1
