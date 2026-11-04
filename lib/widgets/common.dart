@@ -191,18 +191,32 @@ class Notice extends StatelessWidget {
     final p = Palette.of(context);
     final c = error ? p.red : p.green;
     return Container(
+      width: double.infinity,
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
         color: c.withValues(alpha: .08),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(message, style: TextStyle(color: c, fontSize: 12, height: 1.5)),
-          if (action != null)
-            TextButton(onPressed: onAction, child: Text(action!)),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(color: c, fontSize: 12, height: 1.5),
+            ),
+          ),
+          if (action != null) ...[
+            const SizedBox(width: 12),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: c,
+                minimumSize: const Size(48, 48),
+              ),
+              onPressed: onAction,
+              child: Text(action!),
+            ),
+          ],
         ],
       ),
     );

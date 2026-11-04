@@ -81,13 +81,18 @@ class _AddServerPageState extends ConsumerState<AddServerPage> {
     return PopScope(
       canPop: !_busy || _createdId != null,
       child: Scaffold(
-        appBar: AppBar(title: Text(_createdId == null ? '新增服务器' : '安装探针')),
+        appBar: AppBar(
+          title: Text(
+            _createdId == null ? '新增服务器' : '安装探针 - ${_name.text.trim()}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
         body: PageBody(
           child: _createdId != null
               ? InstallCommandView(
                   session: widget.session,
                   serverId: _createdId!,
-                  serverName: _name.text.trim(),
                   onLogin: widget.onLogin,
                 )
               : Form(

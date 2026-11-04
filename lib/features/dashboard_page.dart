@@ -28,6 +28,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
   bool _leaving = false;
   bool _ready = false;
   bool _adding = false;
+  bool _deleting = false;
   bool _savingLayout = false;
   @override
   void initState() {
@@ -207,7 +208,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
   }
 
   Future<void> _toggleLayout() async {
-    if (_savingLayout) return;
+    if (!_ready || session.loading || _savingLayout) return;
     final controller = ref.read(sitesProvider);
     setState(() => _savingLayout = true);
     try {
@@ -228,13 +229,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              title: Text(
-                server.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
             ListTile(
               leading: const Icon(Icons.delete_outline),
               title: const Text('删除'),
@@ -271,7 +265,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
       );
       if (confirmed != true || !mounted || _leaving) return;
     }
-    setState(() => _adding = true);
+    setState(() {
+      _adding = true;
+      _deleting = action == 'delete';
+    });
     try {
       if (!await _ensureAuthorized()) return;
       if (!mounted || _leaving) return;
@@ -317,7 +314,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
         showMessage(context, MonitorSession.friendlyError(e));
       }
     } finally {
-      if (mounted) setState(() => _adding = false);
+      if (mounted) {
+        setState(() {
+          _adding = false;
+          _deleting = false;
+        });
+      }
     }
   }
 
@@ -475,6 +477,18 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                                               ),
                                             ),
                                           ),
+                                          if (_deleting) ...[
+                                            const SizedBox(width: 8),
+                                            SizedBox(
+                                              width: 12,
+                                              height: 12,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 1.5,
+                                                color: p.green,
+                                                semanticsLabel: '正在删除服务器',
+                                              ),
+                                            ),
+                                          ],
                                         ],
                                       ),
                                       const SizedBox(height: 3),
@@ -508,9 +522,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                                 IconButton(
                                   key: const Key('toggle-server-layout'),
                                   tooltip: compact ? '切换卡片布局' : '切换列表布局',
-                                  onPressed: _savingLayout
-                                      ? null
-                                      : _toggleLayout,
+                                  onPressed:
+                                      _ready &&
+                                          !session.loading &&
+                                          !_savingLayout
+                                      ? _toggleLayout
+                                      : null,
                                   icon: Icon(
                                     compact
                                         ? Icons.view_agenda_outlined

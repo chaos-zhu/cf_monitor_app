@@ -22,12 +22,17 @@ class InstallationPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('安装探针')),
+    appBar: AppBar(
+      title: Text(
+        '安装探针 - $serverName',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    ),
     body: PageBody(
       child: InstallCommandView(
         session: session,
         serverId: serverId,
-        serverName: serverName,
         onLogin: onLogin,
       ),
     ),
@@ -38,12 +43,11 @@ class InstallCommandView extends ConsumerStatefulWidget {
   const InstallCommandView({
     required this.session,
     required this.serverId,
-    required this.serverName,
     required this.onLogin,
     super.key,
   });
   final MonitorSession session;
-  final String serverId, serverName;
+  final String serverId;
   final Future<bool> Function() onLogin;
 
   @override
@@ -127,13 +131,10 @@ class _InstallCommandViewState extends ConsumerState<InstallCommandView> {
             _target,
             githubProxy: _proxy.text,
           );
-    final p = Palette.of(context);
     return ListView(
       key: const PageStorageKey('server-installation'),
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
       children: [
-        Text(widget.serverName, style: TextStyle(color: p.muted)),
-        const SizedBox(height: 24),
         const Text('目标系统'),
         const SizedBox(height: 10),
         Wrap(
