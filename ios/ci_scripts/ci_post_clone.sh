@@ -15,9 +15,12 @@ flutter precache --ios
 cd "$APP_ROOT"
 flutter pub get --enforce-lockfile
 
-if ! command -v pod >/dev/null 2>&1; then
-  HOMEBREW_NO_AUTO_UPDATE=1 brew install cocoapods
+if ! brew list --versions ruby >/dev/null 2>&1; then
+  HOMEBREW_NO_AUTO_UPDATE=1 brew install ruby
 fi
+export PATH="$(brew --prefix ruby)/bin:$PATH"
+export GEM_HOME="$CI_WORKSPACE_PATH/cocoapods-gems"
+gem install cocoapods --version 1.16.2 --no-document
 
 cd ios
-pod install --deployment
+"$GEM_HOME/bin/pod" install --deployment
