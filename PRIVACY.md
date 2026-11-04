@@ -28,6 +28,13 @@ necessary, ExchangeRate-API. These services receive the network information
 normally included in a request, such as your IP address. Site credentials and
 authorization tokens are not sent to these exchange-rate services.
 
+When you choose to check for updates, Android contacts GitHub to read the app's
+public releases. iOS contacts Apple's App Store lookup service with the app's
+bundle identifier and your device's region. These requests include normal
+network information such as your IP address; monitoring site addresses,
+credentials, and tokens are not included. Choosing an update or the EasyNode
+project entry opens the corresponding third-party page.
+
 The app can generate probe installation commands containing links to GitHub or a
 proxy selected by you. Running such a command is a separate action, and those
 services have their own privacy practices.

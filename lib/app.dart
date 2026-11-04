@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'core/api.dart';
+import 'core/app_update.dart';
 import 'core/storage.dart';
 import 'core/preferences.dart';
 import 'features/sites_page.dart';
@@ -18,6 +21,18 @@ final sitesProvider = ChangeNotifierProvider<SiteController>(
 );
 final preferencesProvider = ChangeNotifierProvider<PreferencesController>(
   (ref) => PreferencesController(ref.watch(storageProvider))..load(),
+);
+final packageInfoProvider = FutureProvider<PackageInfo>(
+  (ref) => PackageInfo.fromPlatform(),
+);
+final appUpdateProvider = Provider<AppUpdateService>((ref) {
+  final service = AppUpdateService();
+  ref.onDispose(service.dispose);
+  return service;
+});
+final externalLinkProvider = Provider<Future<bool> Function(Uri)>(
+  (ref) =>
+      (url) => launchUrl(url, mode: LaunchMode.externalApplication),
 );
 
 class MonitorApp extends ConsumerWidget {

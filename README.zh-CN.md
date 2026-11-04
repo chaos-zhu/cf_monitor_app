@@ -8,7 +8,7 @@
 <p align="center">为 iOS 与 Android 打造的 CF-Server-Monitor Flutter 客户端。</p>
 
 <p align="center">
-  <a href="README.md">English</a> · <strong>简体中文</strong><br>
+  <strong>简体中文</strong> · <a href="README.en.md">English</a><br>
   Flutter · iOS / Android · <a href="LICENSE">MIT 协议</a>
 </p>
 
@@ -24,6 +24,12 @@
 - **查看网络质量。** 监控站点所配置线路的延迟与丢包率。
 - **手机上完成服务器接入。** 登录后可新增或删除服务器，生成所支持系统的探针安装命令，并选择 GitHub 代理。
 - **适合日常使用。** 支持中文／English、明亮／暗黑／跟随系统主题、偏好保存、WebSocket 重连及返回前台刷新。
+
+## 下载与更新
+
+- **Android**：从 [GitHub Releases](https://github.com/chaos-zhu/cf_monitor_app/releases/latest) 下载适合设备架构的 APK；设置页可检查正式版本并前往下载。
+- **iOS**：通过 App Store 安装与更新。设置页根据应用 Bundle ID 和设备地区查询版本，上架后自动获取商店链接；审核期间会提示当前地区暂未上架。
+- 设置页显示当前安装包的版本与构建号，并提供作者的 [EasyNode](https://github.com/chaos-zhu/easynode) 项目入口。
 
 ## 上游项目
 

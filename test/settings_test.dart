@@ -60,6 +60,11 @@ void main() {
     expect(settingsBrightness(tester), Brightness.dark);
     await click(tester, find.byKey(const Key('theme-system')));
     expect(settingsBrightness(tester), Brightness.light);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('language-en')),
+      -180,
+      scrollable: find.byType(Scrollable).first,
+    );
     await click(tester, find.byKey(const Key('language-en')));
     expect(tester.takeException(), isNull);
     expect(storage.preferences['theme'], 'system');

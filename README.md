@@ -1,34 +1,40 @@
 <p align="center">
-  <img src="assets/branding/logo.png" width="96" height="96" alt="CF Monitor logo">
+  <img src="assets/branding/logo.png" width="96" height="96" alt="CF Monitor 标志">
 </p>
 
 <h1 align="center">CF Monitor</h1>
 
-<p align="center">Your servers. Always in view.</p>
-<p align="center">A Flutter client for CF-Server-Monitor, built for iOS and Android.</p>
+<p align="center">服务器状态，随时掌握。</p>
+<p align="center">为 iOS 与 Android 打造的 CF-Server-Monitor Flutter 客户端。</p>
 
 <p align="center">
-  <strong>English</strong> · <a href="README.zh-CN.md">简体中文</a><br>
-  Flutter · iOS / Android · <a href="LICENSE">MIT License</a>
+  <strong>简体中文</strong> · <a href="README.en.md">English</a><br>
+  Flutter · iOS / Android · <a href="LICENSE">MIT 协议</a>
 </p>
 
-![CF Monitor: multiple sites, live server metrics, resource history, and network quality](docs/images/showcase.png)
+![CF Monitor：多站点管理、实时服务器指标、资源历史与网络质量](docs/images/showcase.png)
 
-<p align="center"><sub>Actual Flutter pages rendered with demo data. Light and dark themes shown; no production credentials or server data are used.</sub></p>
+<p align="center"><sub>使用演示数据渲染的真实 Flutter 页面，展示明亮与暗黑主题；不包含生产环境凭据或服务器数据。</sub></p>
 
-## Monitor on the move
+## 随身掌握服务器状态
 
-- **Multiple sites, one app.** Add public or private sites, keep credentials separate, and choose a default site to open at launch.
-- **A live view of your fleet.** Follow online status, CPU, RAM, disk, bandwidth, monthly traffic, and remaining value. Switch between cards and a compact list, with group and region filters.
-- **History that you can explore.** Inspect resource trends from 10 minutes to 7 days, toggle chart series, and touch a chart to read samples. Optional GPU and disk I/O metrics appear when available.
-- **Network quality at a glance.** Check latency and packet loss for the site's configured routes.
-- **Server setup from your phone.** Sign in to add or delete servers, generate probe installation commands for supported systems, and choose a GitHub proxy.
-- **Made for everyday use.** English and Simplified Chinese, light/dark/system appearance, saved display preferences, WebSocket reconnection, and refresh after returning to the app.
+- **一个 App，管理多个站点。** 添加公开或私有站点，凭据独立保存；可设置启动时直达的默认站点。
+- **实时查看服务器。** 在线状态、CPU、内存、磁盘、网速、月流量及剩余价值一目了然，支持卡片／紧凑列表切换、分组与地区筛选。
+- **可探索的历史图表。** 查看最近 10 分钟至 7 天的资源趋势，切换图例、触摸读取采样；有数据时展示 GPU 与磁盘 I/O。
+- **查看网络质量。** 监控站点所配置线路的延迟与丢包率。
+- **手机上完成服务器接入。** 登录后可新增或删除服务器，生成所支持系统的探针安装命令，并选择 GitHub 代理。
+- **适合日常使用。** 支持中文／English、明亮／暗黑／跟随系统主题、偏好保存、WebSocket 重连及返回前台刷新。
 
-## Upstream project
+## 下载与更新
 
-CF Monitor connects to [huilang-me/CF-Server-Monitor](https://github.com/huilang-me/CF-Server-Monitor). Thanks to the upstream project for its server monitoring service and APIs.
+- **Android**：从 [GitHub Releases](https://github.com/chaos-zhu/cf_monitor_app/releases/latest) 下载适合设备架构的 APK；设置页可检查正式版本并前往下载。
+- **iOS**：通过 App Store 安装与更新。设置页根据应用 Bundle ID 和设备地区查询版本，上架后自动获取商店链接；审核期间会提示当前地区暂未上架。
+- 设置页显示当前安装包的版本与构建号，并提供作者的 [EasyNode](https://github.com/chaos-zhu/easynode) 项目入口。
 
-## License
+## 上游项目
 
-The mobile client and its original logo are available under the [MIT License](LICENSE). The upstream project's copyright and license notices are retained in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and bundled in the app.
+CF Monitor 连接 [huilang-me/CF-Server-Monitor](https://github.com/huilang-me/CF-Server-Monitor)，感谢上游项目提供服务器监控服务与 API。
+
+## 开源协议
+
+移动端客户端及其原创 Logo 使用 [MIT 协议](LICENSE)。上游项目的版权与许可声明保留在 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，并随 App 一起打包。

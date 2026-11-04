@@ -254,6 +254,29 @@ class AppStrings {
     '验证暂不支持': 'Verification not supported',
     '默认主页站点': 'Default home site',
     '设置': 'Settings',
+    '关于': 'About',
+    '当前版本 {0}': 'Current version {0}',
+    '无法读取版本信息': 'Could not read version information',
+    '正在读取版本信息…': 'Reading version information…',
+    '检查更新': 'Check for updates',
+    '正在检查更新…': 'Checking for updates…',
+    '发现新版本 {0}': 'New version {0} available',
+    '前往 App Store 更新 CF Monitor。': 'Update CF Monitor in the App Store.',
+    '前往 GitHub Release 选择适合设备的 APK，下载后安装更新。':
+        'Choose the APK for your device on GitHub Releases, then download and install the update.',
+    '前往更新': 'Get update',
+    '当前已是最新版本': 'You are up to date',
+    '当前地区的 App Store 暂未上架，请稍后重试':
+        'Not available in your App Store region yet. Please try again later.',
+    '暂无可用的 Android 正式版本，请稍后重试':
+        'No Android release is available yet. Please try again later.',
+    '仅支持在 Android 或 iOS 上检查更新':
+        'Update checks are supported on Android and iOS.',
+    '检查更新失败，请检查网络后重试':
+        'Could not check for updates. Check your network and try again.',
+    '作者的其他项目': 'More from the author',
+    '服务器 SSH 终端与管理面板': 'SSH terminal and server management panel',
+    '无法打开链接，请稍后重试': 'Could not open the link. Please try again later.',
     '语言': 'Language',
     '主题': 'Theme',
     '跟随系统': 'System',
