@@ -8,6 +8,9 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks([
+      'CF Monitor',
+    ], await rootBundle.loadString('LICENSE'));
+    yield LicenseEntryWithLineBreaks([
       'CF-Server-Monitor',
     ], await rootBundle.loadString('assets/licenses/CF-Server-Monitor.txt'));
   });

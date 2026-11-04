@@ -172,16 +172,13 @@ class _SitesPageState extends ConsumerState<SitesPage> {
         ],
         title: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: const Color(0xff168565),
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: const Icon(
-                Icons.dns_outlined,
-                size: 19,
-                color: Colors.white,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(9),
+              child: Image.asset(
+                'assets/branding/logo.png',
+                width: 32,
+                height: 32,
+                excludeFromSemantics: true,
               ),
             ),
             const SizedBox(width: 8),

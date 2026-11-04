@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>CF Monitor</title>
+  <desc>A white C surrounds a pale gold monitoring pulse and an online status light on an orange-gold background.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FAAE40"/>
+      <stop offset="1" stop-color="#F38020"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#background)" d="M0 0h1024v1024H0z"/>
+  <path d="M620 328H416Q304 328 304 440V584Q304 696 416 696H680"
+        fill="none" stroke="#ffffff" stroke-width="72" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M392 512H436L480 416L548 608L600 480L632 512H720"
+        fill="none" stroke="#fff1bd" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="716" cy="328" r="32" fill="#fff1bd"/>
+</svg>

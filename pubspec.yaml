@@ -25,4 +25,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - LICENSE
     - assets/licenses/CF-Server-Monitor.txt
+    - assets/branding/logo.png
