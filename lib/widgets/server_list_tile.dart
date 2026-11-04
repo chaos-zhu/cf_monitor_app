@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/strings.dart';
 import '../core/formatters.dart';
 import '../core/models.dart';
 import 'common.dart';
@@ -51,7 +52,7 @@ class ServerListTile extends StatelessWidget {
                       children: [
                         Flexible(
                           child: Text(
-                            server.name,
+                            context.serverName(server),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -67,9 +68,9 @@ class ServerListTile extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Tooltip(
-                    message: online ? '在线' : '离线',
+                    message: online ? context.tr('在线') : context.tr('离线'),
                     child: Semantics(
-                      label: online ? '在线' : '离线',
+                      label: online ? context.tr('在线') : context.tr('离线'),
                       child: Container(
                         width: 6,
                         height: 6,
@@ -89,7 +90,7 @@ class ServerListTile extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      '${compactServerOs(server.text('os'))} · ${compactServerUptime(server.data['boot_time'], now)}',
+                      '${compactServerOs(server.text('os'))} · ${context.tr(compactServerUptime(server.data['boot_time'], now))}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -101,7 +102,7 @@ class ServerListTile extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '负载 ${decimal(server.load.firstOrNull)}',
+                    context.tr('负载 {0}', [decimal(server.load.firstOrNull)]),
                     style: mono(
                       context,
                       size: 10,
@@ -160,7 +161,7 @@ class ServerListTile extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 3),
                       child: _speed(
                         context,
-                        '下载',
+                        context.tr('下载'),
                         server.value('net_in_speed'),
                         p.green,
                       ),
@@ -171,7 +172,7 @@ class ServerListTile extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 3),
                       child: _speed(
                         context,
-                        '上传',
+                        context.tr('上传'),
                         server.value('net_out_speed'),
                         p.blue,
                       ),
@@ -294,7 +295,7 @@ class ServerListTile extends StatelessWidget {
     final text = ping == null
         ? '—'
         : ping <= 0
-        ? '超时'
+        ? context.tr('超时')
         : '${decimal(ping, 0)}ms';
     final color = ping == null
         ? p.muted
@@ -304,9 +305,12 @@ class ServerListTile extends StatelessWidget {
         ? p.amber
         : p.green;
     return Tooltip(
-      message:
-          '${config.probeName(key)} · $text · ${decimal(server.averageProbeLoss(key), 1)}% 丢包',
-      child: _networkItem(context, config.probeName(key), text, color),
+      message: context.tr('{0} · {1} · {2}% 丢包', [
+        context.probeName(config, key),
+        text,
+        decimal(server.averageProbeLoss(key), 1),
+      ]),
+      child: _networkItem(context, context.probeName(config, key), text, color),
     );
   }
 }

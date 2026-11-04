@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/strings.dart';
 import '../app.dart';
 import '../core/api.dart';
 import '../core/session.dart';
@@ -83,7 +84,9 @@ class _AddServerPageState extends ConsumerState<AddServerPage> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(
-            _createdId == null ? '新增服务器' : '安装探针 - ${_name.text.trim()}',
+            _createdId == null
+                ? context.tr('新增服务器')
+                : context.tr('安装探针 - {0}', [_name.text.trim()]),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -101,30 +104,34 @@ class _AddServerPageState extends ConsumerState<AddServerPage> {
                     key: const PageStorageKey('server-creation'),
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
                     children: [
-                      const Text('服务器名称'),
+                      Text(context.tr('服务器名称')),
                       const SizedBox(height: 9),
                       TextFormField(
                         key: const Key('server-name'),
                         controller: _name,
                         enabled: !_busy,
                         textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(hintText: '例如：香港服务器'),
+                        decoration: InputDecoration(
+                          hintText: context.tr('例如：香港服务器'),
+                        ),
                         validator: (value) {
                           final name = (value ?? '').trim();
-                          if (name.isEmpty) return '请输入服务器名称';
-                          if (name.length > 100) return '服务器名称最多 100 个字符';
+                          if (name.isEmpty) return context.tr('请输入服务器名称');
+                          if (name.length > 100) {
+                            return context.tr('服务器名称最多 100 个字符');
+                          }
                           return null;
                         },
                       ),
                       const SizedBox(height: 22),
-                      const Text('分组'),
+                      Text(context.tr('分组')),
                       const SizedBox(height: 9),
                       TextFormField(
                         key: const Key('server-group'),
                         controller: _group,
                         enabled: !_busy,
-                        decoration: const InputDecoration(
-                          hintText: 'Default（可选）',
+                        decoration: InputDecoration(
+                          hintText: context.tr('Default（可选）'),
                         ),
                       ),
                       if (groups.isNotEmpty) ...[
@@ -151,15 +158,21 @@ class _AddServerPageState extends ConsumerState<AddServerPage> {
                         key: const Key('submit-server'),
                         onPressed: _busy ? null : _submit,
                         child: _busy
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: Colors.white,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimary,
                                 ),
                               )
-                            : Text(_needsLogin ? '重新登录并创建' : '创建服务器'),
+                            : Text(
+                                _needsLogin
+                                    ? context.tr('重新登录并创建')
+                                    : context.tr('创建服务器'),
+                              ),
                       ),
                     ],
                   ),

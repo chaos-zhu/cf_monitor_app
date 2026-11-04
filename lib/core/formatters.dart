@@ -210,11 +210,11 @@ String priceCurrency(Server server) {
   return 'CNY';
 }
 
-String billingPrice(Server server) {
+String billingPrice(Server server, {String Function(String)? translate}) {
   final raw = server.text('price', '');
   if (raw.isEmpty) return '—';
-  if (priceAmount(server) == 0) return '免费';
-  return '${priceCurrency(server)} ${decimal(priceAmount(server))} / ${cycleLabels[billingCycle(server)]}';
+  if (priceAmount(server) == 0) return translate?.call('免费') ?? '免费';
+  return '${priceCurrency(server)} ${decimal(priceAmount(server))} / ${translate?.call(cycleLabels[billingCycle(server)]!) ?? cycleLabels[billingCycle(server)]}';
 }
 
 double remainingValue(

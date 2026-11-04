@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/strings.dart';
 import '../app.dart';
 import '../core/api.dart';
 import '../core/models.dart';
@@ -94,7 +95,7 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
         }
         WorkerApi.ensureSupported(cfg, login: true);
         if (_username.text.trim().isEmpty || _password.text.isEmpty) {
-          setState(() => _error = '请输入用户名和密码');
+          setState(() => _error = context.tr('请输入用户名和密码'));
           return;
         }
         final nextToken = await api.login(
@@ -131,7 +132,7 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
               ? e.message.toString()
               : e is ApiFailure
               ? e.message
-              : '连接或保存失败，请重试',
+              : context.tr('连接或保存失败，请重试'),
         );
       }
     } finally {
@@ -152,7 +153,9 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
             children: [
               Text(
-                widget.requireLogin ? '重新连接站点' : '连接新站点',
+                widget.requireLogin
+                    ? context.tr('重新连接站点')
+                    : context.tr('连接新站点'),
                 style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w600,
@@ -160,21 +163,22 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                '添加你的 CF Server Monitor',
+                context.tr('添加你的 CF Server Monitor'),
                 style: TextStyle(fontSize: 13, color: p.muted),
               ),
               const SizedBox(height: 27),
-              _label('站点名称'),
+              _label(context.tr('站点名称')),
               TextFormField(
                 key: const Key('site-name'),
                 controller: _name,
                 enabled: !_busy && !widget.requireLogin,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(hintText: '例如：主监控站'),
-                validator: (v) => (v ?? '').trim().isEmpty ? '请输入站点名称' : null,
+                decoration: InputDecoration(hintText: context.tr('例如：主监控站')),
+                validator: (v) =>
+                    (v ?? '').trim().isEmpty ? context.tr('请输入站点名称') : null,
               ),
               const SizedBox(height: 22),
-              _label('站点地址'),
+              _label(context.tr('站点地址')),
               TextFormField(
                 key: const Key('site-url'),
                 controller: _url,
@@ -189,7 +193,7 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
                     normalizeBaseUrl(v ?? '');
                     return null;
                   } on FormatException catch (e) {
-                    return e.message;
+                    return context.tr(e.message);
                   }
                 },
               ),
@@ -201,7 +205,11 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        '已识别 CF Server Monitor · ${cfg.isPublic ? '公开站点' : '私有站点'}',
+                        context.tr('已识别 CF Server Monitor · {0}', [
+                          cfg.isPublic
+                              ? context.tr('公开站点')
+                              : context.tr('私有站点'),
+                        ]),
                         style: TextStyle(fontSize: 12, color: p.green),
                       ),
                     ),
@@ -218,28 +226,34 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
                         children: [
                           Icon(Icons.lock_outline, size: 17, color: p.green),
                           const SizedBox(width: 7),
-                          const Text(
-                            '登录此站点',
-                            style: TextStyle(fontWeight: FontWeight.w600),
+                          Expanded(
+                            child: Text(
+                              context.tr('登录此站点'),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '使用该站点现有的管理员账号',
+                        context.tr('使用该站点现有的管理员账号'),
                         style: TextStyle(fontSize: 12, color: p.muted),
                       ),
                       const SizedBox(height: 20),
-                      _label('用户名'),
+                      _label(context.tr('用户名')),
                       TextFormField(
                         key: const Key('username'),
                         controller: _username,
                         enabled: !_busy,
                         autocorrect: false,
-                        decoration: const InputDecoration(hintText: '输入用户名'),
+                        decoration: InputDecoration(
+                          hintText: context.tr('输入用户名'),
+                        ),
                       ),
                       const SizedBox(height: 18),
-                      _label('密码'),
+                      _label(context.tr('密码')),
                       TextFormField(
                         key: const Key('password'),
                         controller: _password,
@@ -251,9 +265,11 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
                           if (!_busy) _connect();
                         },
                         decoration: InputDecoration(
-                          hintText: '输入站点密码',
+                          hintText: context.tr('输入站点密码'),
                           suffixIcon: IconButton(
-                            tooltip: _hidden ? '显示密码' : '隐藏密码',
+                            tooltip: _hidden
+                                ? context.tr('显示密码')
+                                : context.tr('隐藏密码'),
                             onPressed: () => setState(() => _hidden = !_hidden),
                             icon: Icon(
                               _hidden
@@ -275,7 +291,7 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
                     onPressed: _busy
                         ? null
                         : () => setState(() => _login = true),
-                    child: const Text('需要登录？输入账号密码'),
+                    child: Text(context.tr('需要登录？输入账号密码')),
                   ),
                 ),
               ],
@@ -285,27 +301,36 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
               ],
               if (cfg?.globalChallenge == true ||
                   (_login && cfg?.loginChallenge == true))
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 12),
-                  child: Notice('当前版本不支持 Turnstile 人机验证。公开站点若仅开启登录验证，仍可匿名查看。'),
+                  child: Notice(
+                    context.tr('当前版本不支持 Turnstile 人机验证。公开站点若仅开启登录验证，仍可匿名查看。'),
+                  ),
                 ),
               const SizedBox(height: 24),
               FilledButton(
                 key: const Key('connect-site'),
                 onPressed: _busy ? null : () => _connect(),
                 child: _busy
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.onPrimary,
                         ),
                       )
                     : Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(_login ? '登录并连接' : '检查并连接'),
+                          Flexible(
+                            child: Text(
+                              _login
+                                  ? context.tr('登录并连接')
+                                  : context.tr('检查并连接'),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
                           const SizedBox(width: 9),
                           const Icon(Icons.arrow_forward, size: 17),
                         ],
@@ -319,7 +344,7 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
                   const SizedBox(width: 7),
                   Flexible(
                     child: Text(
-                      '密码不保存，登录凭证按站点独立存储',
+                      context.tr('密码不保存，登录凭证按站点独立存储'),
                       style: TextStyle(fontSize: 11, color: p.muted),
                     ),
                   ),

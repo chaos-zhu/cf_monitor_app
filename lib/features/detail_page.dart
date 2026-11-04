@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../core/strings.dart';
 import '../core/api.dart';
 import '../core/formatters.dart';
 import '../core/models.dart';
@@ -158,7 +159,7 @@ class _DetailPageState extends State<DetailPage> with WidgetsBindingObserver {
                       Notice(
                         _detailError!,
                         error: true,
-                        action: '重试',
+                        action: context.tr('重试'),
                         onAction: _load,
                       ),
                   ] else ...[
@@ -170,11 +171,14 @@ class _DetailPageState extends State<DetailPage> with WidgetsBindingObserver {
                       runSpacing: 6,
                       children: [
                         Text(
-                          '历史时间范围',
+                          context.tr('历史时间范围'),
                           style: TextStyle(fontSize: 11, color: p.muted),
                         ),
                         Text(
-                          '${range.label} · ${_samples.length} 个采样点',
+                          context.tr('{0} · {1} 个采样点', [
+                            range.label,
+                            _samples.length,
+                          ]),
                           style: mono(context, size: 10, color: p.muted),
                         ),
                       ],
@@ -207,7 +211,9 @@ class _DetailPageState extends State<DetailPage> with WidgetsBindingObserver {
                                         ? p.green
                                         : Colors.transparent,
                                     foregroundColor: range == item
-                                        ? Colors.white
+                                        ? Theme.of(
+                                            context,
+                                          ).colorScheme.onPrimary
                                         : p.muted,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(6),
@@ -227,7 +233,9 @@ class _DetailPageState extends State<DetailPage> with WidgetsBindingObserver {
                                       context,
                                       size: 10,
                                       color: range == item
-                                          ? Colors.white
+                                          ? Theme.of(
+                                              context,
+                                            ).colorScheme.onPrimary
                                           : p.muted,
                                     ),
                                   ),
@@ -248,27 +256,33 @@ class _DetailPageState extends State<DetailPage> with WidgetsBindingObserver {
                       Notice(
                         _detailError!,
                         error: true,
-                        action: '重试',
+                        action: context.tr('重试'),
                         onAction: _load,
                       ),
                     if (_historyError != null)
                       Notice(
                         _historyError!,
                         error: true,
-                        action: _loginNeeded ? '登录站点' : '重试',
+                        action: _loginNeeded
+                            ? context.tr('登录站点')
+                            : context.tr('重试'),
                         onAction: _loginNeeded ? _login : _load,
                       ),
                     if (session.needsLogin)
-                      Notice('实时连接需要重新登录。', action: '重新登录', onAction: _login),
+                      Notice(
+                        context.tr('实时连接需要重新登录。'),
+                        action: context.tr('重新登录'),
+                        onAction: _login,
+                      ),
                     Container(
                       decoration: BoxDecoration(
                         border: Border(bottom: BorderSide(color: p.line)),
                       ),
                       child: Row(
                         children: [
-                          _tabButton('资源', '资源指标'),
-                          _tabButton('网络', '网络质量'),
-                          _tabButton('系统', '系统信息'),
+                          _tabButton('资源', context.tr('资源指标')),
+                          _tabButton('网络', context.tr('网络质量')),
+                          _tabButton('系统', context.tr('系统信息')),
                         ],
                       ),
                     ),
@@ -278,7 +292,7 @@ class _DetailPageState extends State<DetailPage> with WidgetsBindingObserver {
                     if (tab == '系统') ..._system(server),
                     const SizedBox(height: 8),
                     Text(
-                      '最后上报 ${dateTime(server.reportTime)}',
+                      context.tr('最后上报 {0}', [dateTime(server.reportTime)]),
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 10, color: p.muted),
                     ),
@@ -338,7 +352,7 @@ class _DetailPageState extends State<DetailPage> with WidgetsBindingObserver {
             children: [
               Expanded(
                 child: Text(
-                  '${flag(s.region)} ${s.name}',
+                  '${flag(s.region)} ${context.serverName(s)}',
                   style: const TextStyle(
                     fontSize: 23,
                     fontWeight: FontWeight.w600,
@@ -347,7 +361,7 @@ class _DetailPageState extends State<DetailPage> with WidgetsBindingObserver {
               ),
               const SizedBox(width: 8),
               StatusPill(
-                s.isOnline() ? '在线' : '离线',
+                s.isOnline() ? context.tr('在线') : context.tr('离线'),
                 color: s.isOnline() ? p.green : p.red,
               ),
             ],
@@ -364,15 +378,19 @@ class _DetailPageState extends State<DetailPage> with WidgetsBindingObserver {
             spacing: 25,
             runSpacing: 10,
             children: [
-              _heroValue(context, '运行时间', uptime(s.data['boot_time'])),
               _heroValue(
                 context,
-                'CPU 核心',
+                context.tr('运行时间'),
+                context.tr(uptime(s.data['boot_time'])),
+              ),
+              _heroValue(
+                context,
+                context.tr('CPU 核心'),
                 '${decimal(s.value('cpu_cores'), 0)} vCPU',
               ),
               _heroValue(
                 context,
-                '内存容量',
+                context.tr('内存容量'),
                 bytes(
                   s.value('ram_total') == null
                       ? null
@@ -423,16 +441,16 @@ class _DetailPageState extends State<DetailPage> with WidgetsBindingObserver {
   bool _has(Server s, String key) =>
       s.value(key) != null || _history.any((v) => v.value(key) != null);
   List<Widget> _resources(BuildContext context, Server s) => [
-    _chart('cpu', 'CPU 使用率', '%', percent(s.value('cpu')), [
+    _chart('cpu', context.tr('CPU 使用率'), '%', percent(s.value('cpu')), [
       ChartLine.field('CPU', 'cpu'),
     ], open: true),
     _chart(
       'ram',
-      '内存使用率',
+      context.tr('内存使用率'),
       '%',
       percent(s.percent('ram_used', 'ram_total')),
       [
-        ChartLine.ratio('内存', 'ram_used', 'ram_total'),
+        ChartLine.ratio(context.tr('内存'), 'ram_used', 'ram_total'),
         if (s.number('swap_total') > 0)
           ChartLine.ratio('Swap', 'swap_used', 'swap_total'),
       ],
@@ -441,60 +459,79 @@ class _DetailPageState extends State<DetailPage> with WidgetsBindingObserver {
     ),
     _chart(
       'disk',
-      '磁盘使用率',
+      context.tr('磁盘使用率'),
       '%',
       percent(s.percent('disk_used', 'disk_total')),
-      [ChartLine.ratio('磁盘', 'disk_used', 'disk_total')],
+      [ChartLine.ratio(context.tr('磁盘'), 'disk_used', 'disk_total')],
       maxY: 100,
     ),
     if (_has(s, 'disk_read_bps') || _has(s, 'disk_write_bps'))
       _chart(
         'io-speed',
-        '磁盘 IO · 吞吐',
+        context.tr('磁盘 IO · 吞吐'),
         'B/s',
         'R ${bytes(s.value('disk_read_bps'), speed: true)} / W ${bytes(s.value('disk_write_bps'), speed: true)}',
         [
-          ChartLine.field('读取', 'disk_read_bps'),
-          ChartLine.field('写入', 'disk_write_bps'),
+          ChartLine.field(context.tr('读取'), 'disk_read_bps'),
+          ChartLine.field(context.tr('写入'), 'disk_write_bps'),
         ],
       ),
     if (_has(s, 'disk_read_iops') || _has(s, 'disk_write_iops'))
       _chart(
         'iops',
-        '磁盘 IO · 操作数',
+        context.tr('磁盘 IO · 操作数'),
         'IOPS',
         '${decimal(s.value('disk_read_iops'), 1)} / ${decimal(s.value('disk_write_iops'), 1)}',
         [
-          ChartLine.field('读 IOPS', 'disk_read_iops'),
-          ChartLine.field('写 IOPS', 'disk_write_iops'),
+          ChartLine.field(context.tr('读 IOPS'), 'disk_read_iops'),
+          ChartLine.field(context.tr('写 IOPS'), 'disk_write_iops'),
         ],
       ),
     if (_has(s, 'disk_await_ms'))
       _chart(
         'await',
-        '磁盘 IO · 等待',
+        context.tr('磁盘 IO · 等待'),
         'ms',
         '${decimal(s.value('disk_await_ms'), 1)} ms',
         [ChartLine.field('await', 'disk_await_ms')],
       ),
     if (_has(s, 'disk_util'))
-      _chart('util', '磁盘 IO · 利用率', '%', percent(s.value('disk_util')), [
-        ChartLine.field('util', 'disk_util'),
-      ], maxY: 100),
-    _chart('load', '负载监控', '负载', s.load.map((v) => decimal(v)).join(' / '), [
-      for (var i = 0; i < 3; i++)
-        ChartLine(['1 分钟', '5 分钟', '15 分钟'][i], (row) {
-          final load = Server(row).load;
-          return i < load.length ? load[i] : null;
-        }, includes: (row) => row.containsKey('load_avg')),
-    ]),
-    _chart('process', '进程数', '个', decimal(s.value('processes'), 0), [
-      ChartLine.field('进程', 'processes'),
-    ]),
+      _chart(
+        'util',
+        context.tr('磁盘 IO · 利用率'),
+        '%',
+        percent(s.value('disk_util')),
+        [ChartLine.field('util', 'disk_util')],
+        maxY: 100,
+      ),
+    _chart(
+      'load',
+      context.tr('负载监控'),
+      context.tr('负载'),
+      s.load.map((v) => decimal(v)).join(' / '),
+      [
+        for (var i = 0; i < 3; i++)
+          ChartLine(
+            [context.tr('1 分钟'), context.tr('5 分钟'), context.tr('15 分钟')][i],
+            (row) {
+              final load = Server(row).load;
+              return i < load.length ? load[i] : null;
+            },
+            includes: (row) => row.containsKey('load_avg'),
+          ),
+      ],
+    ),
+    _chart(
+      'process',
+      context.tr('进程数'),
+      context.tr('个'),
+      decimal(s.value('processes'), 0),
+      [ChartLine.field(context.tr('进程'), 'processes')],
+    ),
     if (s.gpus.isNotEmpty) ...[
       _chart(
         'gpu',
-        'GPU 使用率',
+        context.tr('GPU 使用率'),
         '%',
         s.gpus.map((g) => percent(metricNumber(g['info']))).join(' / '),
         _gpuLines(s, 'info'),
@@ -503,7 +540,7 @@ class _DetailPageState extends State<DetailPage> with WidgetsBindingObserver {
       if (s.gpus.any((g) => metricNumber(g['mem_used']) != null))
         _chart(
           'gpu-memory',
-          'GPU 显存',
+          context.tr('GPU 显存'),
           'MiB',
           s.gpus
               .map(
@@ -516,7 +553,7 @@ class _DetailPageState extends State<DetailPage> with WidgetsBindingObserver {
       if (s.gpus.any((g) => metricNumber(g['sm_clock']) != null))
         _chart(
           'gpu-clock',
-          'GPU 时钟',
+          context.tr('GPU 时钟'),
           'MHz',
           s.gpus
               .map((g) => '${decimal(metricNumber(g['sm_clock']), 0)} MHz')
@@ -526,7 +563,7 @@ class _DetailPageState extends State<DetailPage> with WidgetsBindingObserver {
       if (s.gpus.any((g) => metricNumber(g['power']) != null))
         _chart(
           'gpu-power',
-          'GPU 功耗',
+          context.tr('GPU 功耗'),
           'W',
           s.gpus
               .map((g) => '${decimal(metricNumber(g['power']), 1)} W')
@@ -557,38 +594,38 @@ class _DetailPageState extends State<DetailPage> with WidgetsBindingObserver {
     return [
       InfoRows([
         (
-          '实时速度',
+          context.tr('实时速度'),
           '↓ ${bytes(s.value('net_in_speed'), speed: true)} / ↑ ${bytes(s.value('net_out_speed'), speed: true)}',
         ),
         (
-          '总流量',
+          context.tr('总流量'),
           '↓ ${bytes(s.value('net_rx'))} / ↑ ${bytes(s.value('net_tx'))}',
         ),
         (
-          '月流量',
+          context.tr('月流量'),
           '↓ ${bytes(s.value('net_rx_monthly'))} / ↑ ${bytes(s.value('net_tx_monthly'))}',
         ),
         (
-          '月流量限制',
-          '${bytes(s.trafficUsed)} / ${s.number('traffic_limit') <= 0 ? '不限量' : bytes(s.number('traffic_limit') * 1073741824)}',
+          context.tr('月流量限制'),
+          '${bytes(s.trafficUsed)} / ${s.number('traffic_limit') <= 0 ? context.tr('不限量') : bytes(s.number('traffic_limit') * 1073741824)}',
         ),
       ]),
       const SizedBox(height: 13),
       _chart(
         'network',
-        '网络速度',
+        context.tr('网络速度'),
         'B/s',
         '↓ ${bytes(s.value('net_in_speed'), speed: true)}',
         [
-          ChartLine.field('下载', 'net_in_speed'),
-          ChartLine.field('上传', 'net_out_speed'),
+          ChartLine.field(context.tr('下载'), 'net_in_speed'),
+          ChartLine.field(context.tr('上传'), 'net_out_speed'),
         ],
         open: true,
       ),
       _chart(
         'connections',
-        '连接数',
-        '个',
+        context.tr('连接数'),
+        context.tr('个'),
         'TCP ${decimal(s.value('tcp_conn'), 0)} / UDP ${decimal(s.value('udp_conn'), 0)}',
         [
           ChartLine.field('TCP', 'tcp_conn'),
@@ -598,18 +635,18 @@ class _DetailPageState extends State<DetailPage> with WidgetsBindingObserver {
       if (probes.isNotEmpty) ...[
         _chart(
           'latency',
-          '线路延迟',
+          context.tr('线路延迟'),
           'ms',
           probes
               .map(
                 (key) =>
-                    '${session.config.probeName(key)} ${s.number('ping_$key') < 0 ? '超时' : '${decimal(s.value('ping_$key'), 0)} ms'}',
+                    '${context.probeName(session.config, key)} ${s.number('ping_$key') < 0 ? context.tr('超时') : '${decimal(s.value('ping_$key'), 0)} ms'}',
               )
               .join(' · '),
           [
             for (final key in probes)
               ChartLine(
-                session.config.probeName(key),
+                context.probeName(session.config, key),
                 (row) {
                   final value = Server(row).value('ping_$key');
                   return value != null && value >= 0 ? value : null;
@@ -621,61 +658,68 @@ class _DetailPageState extends State<DetailPage> with WidgetsBindingObserver {
         ),
         _chart(
           'loss',
-          '丢包率',
+          context.tr('丢包率'),
           '%',
           probes
               .map(
                 (key) =>
-                    '${session.config.probeName(key)} ${percent(s.value('loss_$key'))}',
+                    '${context.probeName(session.config, key)} ${percent(s.value('loss_$key'))}',
               )
               .join(' · '),
           [
             for (final key in probes)
-              ChartLine.field(session.config.probeName(key), 'loss_$key'),
+              ChartLine.field(
+                context.probeName(session.config, key),
+                'loss_$key',
+              ),
           ],
           maxY: 100,
         ),
       ] else
-        const Notice('当前服务器没有启用的线路探测数据。'),
+        Notice(context.tr('当前服务器没有启用的线路探测数据。')),
     ];
   }
 
   List<Widget> _system(Server s) => [
     InfoRows([
-      ('操作系统 / 架构', '${s.text('os')} / ${s.text('arch')}'),
-      ('内核版本', s.text('kernel_version')),
-      ('CPU 型号', s.text('cpu_info')),
-      ('CPU 核心数', '${decimal(s.value('cpu_cores'), 0)} 核'),
+      (context.tr('操作系统 / 架构'), '${s.text('os')} / ${s.text('arch')}'),
+      (context.tr('内核版本'), s.text('kernel_version')),
+      (context.tr('CPU 型号'), s.text('cpu_info')),
+      (
+        context.tr('CPU 核心数'),
+        context.tr('{0} 核', [decimal(s.value('cpu_cores'), 0)]),
+      ),
       if (s.gpus.isNotEmpty)
         (
-          'GPU 型号',
+          context.tr('GPU 型号'),
           s.gpus.map((g) => '${g['name'] ?? g['id'] ?? 'GPU'}').join(' / '),
         ),
       (
-        '总磁盘 / 内存',
+        context.tr('总磁盘 / 内存'),
         '${bytes(s.value('disk_total') == null ? null : s.number('disk_total') * 1048576)} / ${bytes(s.value('ram_total') == null ? null : s.number('ram_total') * 1048576)}',
       ),
       (
         'Swap',
         '${decimal(s.value('swap_used'), 0)} / ${decimal(s.value('swap_total'), 0)} MiB',
       ),
-      ('运行时间', uptime(s.data['boot_time'])),
-      ('启动时间', dateTime(metricTime(s.data['boot_time']))),
-      ('最后更新', dateTime(s.reportTime)),
-      ('IPv4 / IPv6', _ip(s).isEmpty ? '不可用' : _ip(s)),
+      (context.tr('运行时间'), context.tr(uptime(s.data['boot_time']))),
+      (context.tr('启动时间'), dateTime(metricTime(s.data['boot_time']))),
+      (context.tr('最后更新'), dateTime(s.reportTime)),
+      ('IPv4 / IPv6', _ip(s).isEmpty ? context.tr('不可用') : _ip(s)),
       if (session.config.show('show_expire'))
-        ('到期时间', s.text('expire_date', '未设置')),
-      if (session.config.show('show_price')) ('价格', billingPrice(s)),
+        (context.tr('到期时间'), s.text('expire_date', context.tr('未设置'))),
+      if (session.config.show('show_price'))
+        (context.tr('价格'), billingPrice(s, translate: context.tr)),
       (
-        '流量计算方式',
+        context.tr('流量计算方式'),
         switch (s.text('traffic_calc_type', 'total')) {
-          'dl' => '仅下载',
-          'ul' => '仅上传',
-          'max' => '上传／下载较大值',
-          _ => '上传 + 下载',
+          'dl' => context.tr('仅下载'),
+          'ul' => context.tr('仅上传'),
+          'max' => context.tr('上传／下载较大值'),
+          _ => context.tr('上传 + 下载'),
         },
       ),
-      if (s.tags.isNotEmpty) ('标签', s.tags.join(' · ')),
+      if (s.tags.isNotEmpty) (context.tr('标签'), s.tags.join(' · ')),
     ]),
   ];
 }

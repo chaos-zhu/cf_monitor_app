@@ -98,6 +98,12 @@ class MemoryStorage extends SiteStorage {
   List<MonitorSite> sites;
   String? defaultSiteId;
   bool compactLayout = false;
+  Map<String, String> preferences = {};
+  @override
+  Future<Map<String, String>> readPreferences() async => {...preferences};
+  @override
+  Future<void> writePreferences(Map<String, String> next) async =>
+      preferences = {...next};
   final tokens = <String, String>{};
   @override
   Future<String?> readDefaultSiteId() async => defaultSiteId;

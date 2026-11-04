@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../core/strings.dart';
 import '../core/formatters.dart';
 import '../core/models.dart';
 import 'common.dart';
@@ -221,7 +222,7 @@ class _MetricChartState extends State<MetricChart> {
             height: widget.height,
             child: Center(
               child: Text(
-                '此时段暂无可用数据',
+                context.tr('此时段暂无可用数据'),
                 style: TextStyle(fontSize: 12, color: p.muted),
               ),
             ),
@@ -242,7 +243,10 @@ class _MetricChartState extends State<MetricChart> {
               }
 
               return Semantics(
-                label: '${widget.unit}历史曲线，${samples.length}个采样点，点击或拖动查看数值',
+                label: context.tr('{0}历史曲线，{1}个采样点，点击或拖动查看数值', [
+                  widget.unit,
+                  samples.length,
+                ]),
                 child: MouseRegion(
                   onHover: (e) => select(e.localPosition.dx),
                   child: GestureDetector(

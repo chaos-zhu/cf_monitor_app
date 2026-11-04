@@ -2,12 +2,14 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/strings.dart';
 import '../app.dart';
 import '../core/formatters.dart';
 import '../core/models.dart';
 import '../widgets/common.dart';
 import 'connect_page.dart';
 import 'dashboard_page.dart';
+import 'settings_page.dart';
 
 class SitesPage extends ConsumerStatefulWidget {
   const SitesPage({super.key});
@@ -74,12 +76,14 @@ class _SitesPageState extends ConsumerState<SitesPage> {
           children: [
             ListTile(
               leading: Icon(isDefault ? Icons.home : Icons.home_outlined),
-              title: Text(isDefault ? '取消默认主页站点' : '设为默认主页站点'),
+              title: Text(
+                isDefault ? context.tr('取消默认主页站点') : context.tr('设为默认主页站点'),
+              ),
               onTap: () => Navigator.pop(context, 'default'),
             ),
             ListTile(
               leading: const Icon(Icons.edit_outlined),
-              title: const Text('编辑站点'),
+              title: Text(context.tr('编辑站点')),
               onTap: () => Navigator.pop(context, 'edit'),
             ),
             ListTile(
@@ -87,7 +91,7 @@ class _SitesPageState extends ConsumerState<SitesPage> {
                 Icons.delete_outline,
                 color: Palette.of(context).red,
               ),
-              title: const Text('从本机删除'),
+              title: Text(context.tr('从本机删除')),
               onTap: () => Navigator.pop(context, 'delete'),
             ),
           ],
@@ -100,10 +104,13 @@ class _SitesPageState extends ConsumerState<SitesPage> {
       try {
         await store.setDefaultSite(isDefault ? null : site.id);
         if (mounted) {
-          showMessage(context, isDefault ? '已取消默认主页站点' : '已设为默认主页站点');
+          showMessage(
+            context,
+            isDefault ? context.tr('已取消默认主页站点') : context.tr('已设为默认主页站点'),
+          );
         }
       } catch (_) {
-        if (mounted) showMessage(context, '保存默认主页失败，请重试');
+        if (mounted) showMessage(context, context.tr('保存默认主页失败，请重试'));
       } finally {
         if (mounted) setState(() => _busy = null);
       }
@@ -117,16 +124,18 @@ class _SitesPageState extends ConsumerState<SitesPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除本机站点？'),
-        content: Text('将移除“${site.name}”的本机记录和登录凭证，服务器端数据不受影响。'),
+        title: Text(context.tr('删除本机站点？')),
+        content: Text(
+          context.tr('将移除“{0}”的本机记录和登录凭证，服务器端数据不受影响。', [site.name]),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(context.tr('取消')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
+            child: Text(context.tr('删除')),
           ),
         ],
       ),
@@ -135,7 +144,7 @@ class _SitesPageState extends ConsumerState<SitesPage> {
       try {
         await ref.read(sitesProvider).remove(site);
       } catch (_) {
-        if (mounted) showMessage(context, '删除失败，请重试');
+        if (mounted) showMessage(context, context.tr('删除失败，请重试'));
       }
     }
   }
@@ -149,6 +158,18 @@ class _SitesPageState extends ConsumerState<SitesPage> {
     }
     return Scaffold(
       appBar: AppBar(
+        actions: [
+          IconButton(
+            key: const Key('open-settings'),
+            tooltip: context.tr('设置'),
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => Navigator.push<void>(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsPage()),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
         title: Row(
           children: [
             Container(
@@ -183,8 +204,8 @@ class _SitesPageState extends ConsumerState<SitesPage> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(20, 15, 20, 30),
                   children: [
-                    const Text(
-                      '我的站点',
+                    Text(
+                      context.tr('我的站点'),
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w600,
@@ -192,7 +213,7 @@ class _SitesPageState extends ConsumerState<SitesPage> {
                     ),
                     const SizedBox(height: 7),
                     Text(
-                      '${state.sites.length} 个站点，各自连接与管理',
+                      context.tr('{0} 个站点，各自连接与管理', [state.sites.length]),
                       style: TextStyle(color: p.muted, fontSize: 13),
                     ),
                     const SizedBox(height: 26),
@@ -200,19 +221,21 @@ class _SitesPageState extends ConsumerState<SitesPage> {
                       Notice(
                         state.error!,
                         error: true,
-                        action: '重新读取',
+                        action: context.tr('重新读取'),
                         onAction: state.load,
                       ),
                     if (state.sites.isEmpty && state.error == null)
                       EmptyState(
-                        '还没有添加站点',
-                        subtitle: '连接你的 CF Server Monitor，\n随时查看服务器运行状态。',
-                        action: '添加第一个站点',
+                        context.tr('还没有添加站点'),
+                        subtitle: context.tr(
+                          '连接你的 CF Server Monitor，\n随时查看服务器运行状态。',
+                        ),
+                        action: context.tr('添加第一个站点'),
                         onAction: () => _edit(),
                       ),
                     if (state.sites.isNotEmpty) ...[
-                      const Text(
-                        '全部站点',
+                      Text(
+                        context.tr('全部站点'),
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -229,7 +252,7 @@ class _SitesPageState extends ConsumerState<SitesPage> {
                       OutlinedButton.icon(
                         onPressed: _busy == null ? () => _edit() : null,
                         icon: const Icon(Icons.add, size: 18),
-                        label: const Text('添加站点'),
+                        label: Text(context.tr('添加站点')),
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size(0, 51),
                           side: BorderSide(color: p.line),
@@ -246,7 +269,7 @@ class _SitesPageState extends ConsumerState<SitesPage> {
                         const SizedBox(width: 7),
                         Flexible(
                           child: Text(
-                            '登录凭证仅保存在本机安全存储中',
+                            context.tr('登录凭证仅保存在本机安全存储中'),
                             style: TextStyle(color: p.muted, fontSize: 11),
                           ),
                         ),
@@ -263,15 +286,18 @@ class _SitesPageState extends ConsumerState<SitesPage> {
     final p = Palette.of(context);
     final busy = _busy == site.id;
     final (label, color) = switch (site.status) {
-      SiteStatus.pending => ('待连接', p.muted),
-      SiteStatus.connected => ('上次连接成功', p.green),
-      SiteStatus.loginRequired => ('需要登录', p.amber),
-      SiteStatus.unavailable => ('连接失败', p.red),
-      SiteStatus.unsupported => ('验证暂不支持', p.amber),
+      SiteStatus.pending => (context.tr('待连接'), p.muted),
+      SiteStatus.connected => (context.tr('上次连接成功'), p.green),
+      SiteStatus.loginRequired => (context.tr('需要登录'), p.amber),
+      SiteStatus.unavailable => (context.tr('连接失败'), p.red),
+      SiteStatus.unsupported => (context.tr('验证暂不支持'), p.amber),
     };
     final hasSnapshot = site.lastVisit != null && site.serverCount != null;
     final statusLabel = site.status == SiteStatus.connected && hasSnapshot
-        ? '${site.onlineCount ?? 0} 在线 / ${site.serverCount} 台（快照）'
+        ? context.tr('{0} 在线 / {1} 台（快照）', [
+            site.onlineCount ?? 0,
+            site.serverCount,
+          ])
         : label;
     return AppPanel(
       child: Column(
@@ -316,7 +342,7 @@ class _SitesPageState extends ConsumerState<SitesPage> {
                             site.id) ...[
                           const SizedBox(width: 6),
                           Tooltip(
-                            message: '默认主页站点',
+                            message: context.tr('默认主页站点'),
                             child: Icon(Icons.home, size: 16, color: p.green),
                           ),
                         ],
@@ -331,7 +357,7 @@ class _SitesPageState extends ConsumerState<SitesPage> {
                 ),
               ),
               IconButton(
-                tooltip: '编辑${site.name}',
+                tooltip: context.tr('编辑{0}', [site.name]),
                 onPressed: _busy == null ? () => _menu(site) : null,
                 icon: Icon(Icons.more_horiz, color: p.muted, size: 21),
               ),
@@ -350,7 +376,7 @@ class _SitesPageState extends ConsumerState<SitesPage> {
                     if (site.lastVisit != null) ...[
                       const SizedBox(height: 6),
                       Text(
-                        '${dateTime(site.lastVisit)}${site.status != SiteStatus.connected && hasSnapshot ? '\n${site.onlineCount ?? 0} 在线 / ${site.serverCount} 台（快照）' : ''}',
+                        '${dateTime(site.lastVisit)}${site.status != SiteStatus.connected && hasSnapshot ? context.tr('\n{0} 在线 / {1} 台（快照）', [site.onlineCount ?? 0, site.serverCount]) : ''}',
                         style: TextStyle(
                           fontSize: 10,
                           color: p.muted,
@@ -377,10 +403,10 @@ class _SitesPageState extends ConsumerState<SitesPage> {
                         children: [
                           Text(
                             site.status == SiteStatus.loginRequired
-                                ? '登录站点'
+                                ? context.tr('登录站点')
                                 : site.status == SiteStatus.unavailable
-                                ? '重试'
-                                : '进入站点',
+                                ? context.tr('重试')
+                                : context.tr('进入站点'),
                             style: const TextStyle(fontSize: 12),
                           ),
                           const SizedBox(width: 4),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/strings.dart';
 import '../core/formatters.dart';
 import '../core/models.dart';
 
@@ -8,28 +9,54 @@ class Palette {
   static Palette of(BuildContext context) =>
       Palette(Theme.of(context).brightness == Brightness.dark);
   Color get background =>
-      dark ? const Color(0xff101a17) : const Color(0xfff4f6f3);
-  Color get paper => dark ? const Color(0xff192620) : Colors.white;
-  Color get text => dark ? const Color(0xffe7f0eb) : const Color(0xff182c25);
-  Color get muted => dark ? const Color(0xffa4b5ab) : const Color(0xff718078);
-  Color get line => dark ? const Color(0xff2a3c31) : const Color(0xffe4eae5);
+      dark ? const Color(0xff111111) : const Color(0xfff4f6f3);
+  Color get paper => dark ? const Color(0xff1c1c1c) : Colors.white;
+  Color get text => dark ? const Color(0xfff1f1f1) : const Color(0xff182c25);
+  Color get muted => dark ? const Color(0xffa3a3a3) : const Color(0xff718078);
+  Color get line => dark ? const Color(0xff333333) : const Color(0xffe4eae5);
   Color get green => dark ? const Color(0xff68d4ac) : const Color(0xff168565);
-  Color get soft => dark ? const Color(0xff213e30) : const Color(0xffe9f4ed);
+  Color get soft => dark ? const Color(0xff303030) : const Color(0xffe9f4ed);
   Color get blue => dark ? const Color(0xff80a5ff) : const Color(0xff497de1);
   Color get red => dark ? const Color(0xfff48787) : const Color(0xffd95555);
   Color get amber => dark ? const Color(0xffedbc66) : const Color(0xffb67b1e);
-  Color get track => dark ? const Color(0xff2b3a31) : const Color(0xffedf0eb);
+  Color get track => dark ? const Color(0xff303030) : const Color(0xffedf0eb);
 }
 
 ThemeData appTheme(Brightness brightness) {
   final p = Palette(brightness == Brightness.dark);
-  final scheme = ColorScheme.fromSeed(
+  var scheme = ColorScheme.fromSeed(
     seedColor: const Color(0xff168565),
     brightness: brightness,
     surface: p.paper,
     primary: p.green,
     error: p.red,
   );
+  if (p.dark) {
+    // Keep every Material surface neutral, including sheets, menus and dialogs.
+    scheme = scheme.copyWith(
+      onPrimary: p.background,
+      primaryContainer: p.soft,
+      onPrimaryContainer: p.green,
+      secondary: p.muted,
+      onSecondary: p.background,
+      secondaryContainer: p.soft,
+      onSecondaryContainer: p.text,
+      onSurface: p.text,
+      onSurfaceVariant: p.muted,
+      inverseSurface: p.text,
+      onInverseSurface: p.background,
+      surfaceDim: p.background,
+      surfaceBright: const Color(0xff383838),
+      surfaceContainerLowest: const Color(0xff0c0c0c),
+      surfaceContainerLow: const Color(0xff181818),
+      surfaceContainer: const Color(0xff202020),
+      surfaceContainerHigh: const Color(0xff282828),
+      surfaceContainerHighest: const Color(0xff303030),
+      surfaceTint: Colors.transparent,
+      outline: p.muted,
+      outlineVariant: p.line,
+    );
+  }
   return ThemeData(
     useMaterial3: true,
     brightness: brightness,
@@ -67,8 +94,8 @@ ThemeData appTheme(Brightness brightness) {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: const Color(0xff168565),
-        foregroundColor: Colors.white,
+        backgroundColor: p.green,
+        foregroundColor: scheme.onPrimary,
         minimumSize: const Size(0, 50),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
       ),
@@ -202,7 +229,7 @@ class Notice extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              message,
+              context.tr(message),
               style: TextStyle(color: c, fontSize: 12, height: 1.5),
             ),
           ),
@@ -214,7 +241,7 @@ class Notice extends StatelessWidget {
                 minimumSize: const Size(48, 48),
               ),
               onPressed: onAction,
-              child: Text(action!),
+              child: Text(context.tr(action!)),
             ),
           ],
         ],
@@ -261,7 +288,7 @@ class EmptyState extends StatelessWidget {
           ],
           if (action != null) ...[
             const SizedBox(height: 24),
-            FilledButton(onPressed: onAction, child: Text(action!)),
+            FilledButton(onPressed: onAction, child: Text(context.tr(action!))),
           ],
         ],
       ),
@@ -371,8 +398,9 @@ class InfoRows extends StatelessWidget {
   }
 }
 
-void showMessage(BuildContext context, String text) =>
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+void showMessage(BuildContext context, String text) => ScaffoldMessenger.of(
+  context,
+).showSnackBar(SnackBar(content: Text(context.tr(text))));
 
 class ServerCard extends StatelessWidget {
   const ServerCard({
@@ -392,6 +420,9 @@ class ServerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = Palette.of(context);
     final online = server.isOnline(now);
+    final compactStatus =
+        MediaQuery.sizeOf(context).width < 380 &&
+        MediaQuery.textScalerOf(context).scale(11) > 14;
     return AppPanel(
       padding: EdgeInsets.zero,
       child: InkWell(
@@ -418,7 +449,7 @@ class ServerCard extends StatelessWidget {
                           children: [
                             Flexible(
                               child: Text(
-                                server.name,
+                                context.serverName(server),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -432,7 +463,15 @@ class ServerCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${compactServerOs(server.text('os'))} · 运行 ${compactServerUptime(server.data['boot_time'], now)}',
+                          context.tr('{0} · 运行 {1}', [
+                            compactServerOs(server.text('os')),
+                            context.tr(
+                              compactServerUptime(
+                                server.data['boot_time'],
+                                now,
+                              ),
+                            ),
+                          ]),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(fontSize: 11, color: p.muted),
@@ -441,10 +480,23 @@ class ServerCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 5),
-                  StatusPill(
-                    online ? '在线' : '离线',
-                    color: online ? p.green : p.red,
-                  ),
+                  if (compactStatus)
+                    Tooltip(
+                      message: online ? context.tr('在线') : context.tr('离线'),
+                      child: Semantics(
+                        label: online ? context.tr('在线') : context.tr('离线'),
+                        child: Icon(
+                          Icons.circle,
+                          size: 6,
+                          color: online ? p.green : p.red,
+                        ),
+                      ),
+                    )
+                  else
+                    StatusPill(
+                      online ? context.tr('在线') : context.tr('离线'),
+                      color: online ? p.green : p.red,
+                    ),
                   Icon(Icons.chevron_right, size: 17, color: p.muted),
                 ],
               ),
@@ -508,7 +560,7 @@ class ServerCard extends StatelessWidget {
                       server.enabledProbe,
                     ))
                       Text(
-                        '${config.probeName(key)} ${server.number('ping_$key') < 0 ? '超时' : '${decimal(server.value('ping_$key'), 0)} ms'}',
+                        '${context.probeName(config, key)} ${server.number('ping_$key') < 0 ? context.tr('超时') : '${decimal(server.value('ping_$key'), 0)} ms'}',
                         style: mono(context, size: 10, color: p.muted),
                       ),
                   ],
@@ -528,13 +580,15 @@ class ServerCard extends StatelessWidget {
                     if (config.show('show_expire') &&
                         server.text('expire_date', '').isNotEmpty)
                       Text(
-                        '到期 ${expiry(server.data['expire_date'], now)}',
+                        context.tr('到期 {0}', [
+                          context.tr(expiry(server.data['expire_date'], now)),
+                        ]),
                         style: TextStyle(fontSize: 11, color: p.muted),
                       ),
                     if (config.show('show_price') &&
                         server.text('price', '').isNotEmpty)
                       Text(
-                        billingPrice(server),
+                        billingPrice(server, translate: context.tr),
                         style: mono(context, size: 11, color: p.muted),
                       ),
                   ],
@@ -660,7 +714,7 @@ class LatencyPanel extends StatelessWidget {
                             Expanded(
                               flex: 2,
                               child: Text(
-                                config.probeName(key),
+                                context.probeName(config, key),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(fontSize: 11),
@@ -674,8 +728,13 @@ class LatencyPanel extends StatelessWidget {
                                 alignment: Alignment.centerRight,
                                 child: Text(
                                   (server.latestProbePing(key) ?? 0) <= 0
-                                      ? '超时'
-                                      : '${decimal(server.latestProbePing(key), 0)}ms 延迟',
+                                      ? context.tr('超时')
+                                      : context.tr('{0}ms 延迟', [
+                                          decimal(
+                                            server.latestProbePing(key),
+                                            0,
+                                          ),
+                                        ]),
                                   maxLines: 1,
                                   textAlign: TextAlign.right,
                                   style: mono(
@@ -695,7 +754,9 @@ class LatencyPanel extends StatelessWidget {
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerRight,
                           child: Text(
-                            '${decimal(server.averageProbeLoss(key), 1)}% 丢包',
+                            context.tr('{0}% 丢包', [
+                              decimal(server.averageProbeLoss(key), 1),
+                            ]),
                             maxLines: 1,
                             textAlign: TextAlign.right,
                             style: mono(context, size: 10, color: p.muted),

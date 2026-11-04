@@ -14,6 +14,9 @@ abstract class SiteStorage {
   Future<void> writeDefaultSiteId(String? id);
   Future<bool> readCompactLayout() => Future.value(false);
   Future<void> writeCompactLayout(bool compact) => Future.value();
+  Future<Map<String, String>> readPreferences() => Future.value({});
+  Future<void> writePreferences(Map<String, String> preferences) =>
+      Future.value();
   Future<Map<String, dynamic>?> readRates() => Future.value(null);
   Future<void> writeRates(Map<String, dynamic> rates) => Future.value();
 }
@@ -23,6 +26,7 @@ class DeviceSiteStorage extends SiteStorage {
   static const _ratesKey = 'cf_monitor.rates.v1';
   static const _defaultSiteKey = 'cf_monitor.default_site.v1';
   static const _compactLayoutKey = 'cf_monitor.compact_layout.v1';
+  static const _preferencesKey = 'cf_monitor.preferences.v1';
   final _secure = const FlutterSecureStorage(
     iOptions: IOSOptions(
       accessibility: KeychainAccessibility.first_unlock_this_device,
@@ -63,6 +67,28 @@ class DeviceSiteStorage extends SiteStorage {
       compact,
     );
     if (!ok) throw StateError('保存布局失败');
+  }
+
+  @override
+  Future<Map<String, String>> readPreferences() async {
+    final raw = (await SharedPreferences.getInstance()).getString(
+      _preferencesKey,
+    );
+    if (raw == null) return {};
+    final decoded = jsonMap(jsonDecode(raw));
+    return {
+      for (final entry in decoded.entries)
+        if (entry.value is String) entry.key: entry.value as String,
+    };
+  }
+
+  @override
+  Future<void> writePreferences(Map<String, String> preferences) async {
+    final ok = await (await SharedPreferences.getInstance()).setString(
+      _preferencesKey,
+      jsonEncode(preferences),
+    );
+    if (!ok) throw StateError('保存设置失败，请重试');
   }
 
   @override

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/strings.dart';
 import '../app.dart';
 import '../core/api.dart';
 import '../core/installation.dart';
@@ -24,7 +25,7 @@ class InstallationPage extends StatelessWidget {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       title: Text(
-        '安装探针 - $serverName',
+        context.tr('安装探针 - {0}', [serverName]),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
@@ -135,7 +136,7 @@ class _InstallCommandViewState extends ConsumerState<InstallCommandView> {
       key: const PageStorageKey('server-installation'),
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
       children: [
-        const Text('目标系统'),
+        Text(context.tr('目标系统')),
         const SizedBox(height: 10),
         Wrap(
           spacing: 8,
@@ -150,7 +151,7 @@ class _InstallCommandViewState extends ConsumerState<InstallCommandView> {
           ],
         ),
         const SizedBox(height: 22),
-        const Text('GitHub 代理'),
+        Text(context.tr('GitHub 代理')),
         const SizedBox(height: 10),
         TextField(
           key: const Key('github-proxy'),
@@ -160,14 +161,14 @@ class _InstallCommandViewState extends ConsumerState<InstallCommandView> {
           autocorrect: false,
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
-            hintText: '直连，或输入代理地址',
-            errorText: proxyError,
+            hintText: context.tr('直连，或输入代理地址'),
+            errorText: proxyError == null ? null : context.tr(proxyError),
             helperText: _target == InstallTarget.docker
-                ? 'Docker 镜像不使用 GitHub 代理'
+                ? context.tr('Docker 镜像不使用 GitHub 代理')
                 : null,
             suffixIcon: PopupMenuButton<String>(
               key: const Key('github-proxy-presets'),
-              tooltip: '选择 GitHub 代理',
+              tooltip: context.tr('选择 GitHub 代理'),
               enabled: _target != InstallTarget.docker,
               icon: const Icon(Icons.keyboard_arrow_down),
               onSelected: (value) => setState(() => _proxy.text = value),
@@ -175,14 +176,16 @@ class _InstallCommandViewState extends ConsumerState<InstallCommandView> {
                 for (final proxy in _proxies)
                   PopupMenuItem(
                     value: proxy,
-                    child: Text(proxy.isEmpty ? '直连（不使用代理）' : proxy),
+                    child: Text(
+                      proxy.isEmpty ? context.tr('直连（不使用代理）') : proxy,
+                    ),
                   ),
               ],
             ),
           ),
         ),
         const SizedBox(height: 22),
-        const Text('安装命令', style: TextStyle(fontWeight: FontWeight.w600)),
+        Text(context.tr('安装命令'), style: TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 10),
         if (_busy) const LinearProgressIndicator(),
         if (command != null) ...[
@@ -201,13 +204,17 @@ class _InstallCommandViewState extends ConsumerState<InstallCommandView> {
           FilledButton.icon(
             key: const Key('copy-install-command'),
             icon: const Icon(Icons.copy_outlined, size: 18),
-            label: const Text('复制安装命令'),
+            label: Text(context.tr('复制安装命令')),
             onPressed: () async {
               try {
                 await Clipboard.setData(ClipboardData(text: command));
-                if (context.mounted) showMessage(context, '安装命令已复制');
+                if (context.mounted) {
+                  showMessage(context, context.tr('安装命令已复制'));
+                }
               } catch (_) {
-                if (context.mounted) showMessage(context, '复制失败，可长按命令复制');
+                if (context.mounted) {
+                  showMessage(context, context.tr('复制失败，可长按命令复制'));
+                }
               }
             },
           ),
@@ -220,14 +227,16 @@ class _InstallCommandViewState extends ConsumerState<InstallCommandView> {
           const SizedBox(height: 16),
           FilledButton(
             onPressed: _retryCommand,
-            child: Text(_needsLogin ? '重新登录并获取安装命令' : '重新获取安装命令'),
+            child: Text(
+              _needsLogin ? context.tr('重新登录并获取安装命令') : context.tr('重新获取安装命令'),
+            ),
           ),
         ],
         const SizedBox(height: 12),
         OutlinedButton(
           key: const Key('finish-server'),
           onPressed: () => Navigator.pop(context),
-          child: const Text('返回服务器列表'),
+          child: Text(context.tr('返回服务器列表')),
         ),
       ],
     );

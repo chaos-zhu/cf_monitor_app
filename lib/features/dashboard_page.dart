@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/strings.dart';
 import '../app.dart';
 import '../core/api.dart';
 import '../core/formatters.dart';
@@ -214,7 +215,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
     try {
       await controller.setCompactLayout(!controller.compactLayout);
     } catch (_) {
-      if (mounted) showMessage(context, '保存布局失败，请重试');
+      if (mounted) showMessage(context, context.tr('保存布局失败，请重试'));
     } finally {
       if (mounted) setState(() => _savingLayout = false);
     }
@@ -231,12 +232,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
           children: [
             ListTile(
               leading: const Icon(Icons.delete_outline),
-              title: const Text('删除'),
+              title: Text(context.tr('删除')),
               onTap: () => Navigator.pop(context, 'delete'),
             ),
             ListTile(
               leading: const Icon(Icons.terminal),
-              title: const Text('安装命令'),
+              title: Text(context.tr('安装命令')),
               onTap: () => Navigator.pop(context, 'install'),
             ),
           ],
@@ -248,17 +249,21 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('删除服务器？'),
-          content: Text('将从当前站点删除“${server.name}”及其监控数据。服务器上的 Agent 不会自动卸载。'),
+          title: Text(context.tr('删除服务器？')),
+          content: Text(
+            context.tr('将从当前站点删除“{0}”及其监控数据。服务器上的 Agent 不会自动卸载。', [
+              context.serverName(server),
+            ]),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('取消'),
+              child: Text(context.tr('取消')),
             ),
             TextButton(
               key: const Key('confirm-delete-server'),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('删除'),
+              child: Text(context.tr('删除')),
             ),
           ],
         ),
@@ -279,7 +284,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
             builder: (_) => InstallationPage(
               session: session,
               serverId: server.id,
-              serverName: server.name,
+              serverName: context.serverName(server),
               onLogin: _login,
             ),
           ),
@@ -307,7 +312,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
         if (!mounted || _leaving) return;
         _region = '全部';
         await session.refresh(forceRefresh: true);
-        if (mounted && !_leaving) showMessage(context, '服务器已删除');
+        if (mounted && !_leaving) showMessage(context, context.tr('服务器已删除'));
       }
     } catch (e) {
       if (mounted && !_leaving) {
@@ -456,9 +461,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                                           ),
                                           const SizedBox(width: 6),
                                           Tooltip(
-                                            message: session.connectionLabel,
+                                            message: context.tr(
+                                              session.connectionLabel,
+                                            ),
                                             child: Semantics(
-                                              label: session.connectionLabel,
+                                              label: context.tr(
+                                                session.connectionLabel,
+                                              ),
                                               child: Container(
                                                 key: const Key(
                                                   'connection-dot',
@@ -485,7 +494,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                                               child: CircularProgressIndicator(
                                                 strokeWidth: 1.5,
                                                 color: p.green,
-                                                semanticsLabel: '正在删除服务器',
+                                                semanticsLabel: context.tr(
+                                                  '正在删除服务器',
+                                                ),
                                               ),
                                             ),
                                           ],
@@ -511,7 +522,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                                 const SizedBox(width: 12),
                                 IconButton(
                                   key: const Key('add-server'),
-                                  tooltip: '新增服务器',
+                                  tooltip: context.tr('新增服务器'),
                                   onPressed:
                                       _ready && !session.loading && !_adding
                                       ? _addServer
@@ -521,7 +532,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                                 ),
                                 IconButton(
                                   key: const Key('toggle-server-layout'),
-                                  tooltip: compact ? '切换卡片布局' : '切换列表布局',
+                                  tooltip: compact
+                                      ? context.tr('切换卡片布局')
+                                      : context.tr('切换列表布局'),
                                   onPressed:
                                       _ready &&
                                           !session.loading &&
@@ -545,15 +558,17 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                               Notice(
                                 session.error!,
                                 error: true,
-                                action: session.needsLogin ? '重新登录' : '重试',
+                                action: session.needsLogin
+                                    ? context.tr('重新登录')
+                                    : context.tr('重试'),
                                 onAction: session.needsLogin
                                     ? _login
                                     : session.refresh,
                               ),
                             if (session.lifetimeEnded)
                               Notice(
-                                '实时连接已达到站点设置的时长。',
-                                action: '继续连接',
+                                context.tr('实时连接已达到站点设置的时长。'),
+                                action: context.tr('继续连接'),
                                 onAction: session.reconnect,
                               ),
                             if (!session.realtime &&
@@ -561,12 +576,16 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                                 !session.lifetimeEnded &&
                                 servers.isNotEmpty)
                               Text(
-                                '实时连接暂不可用 · 数据更新于 ${dateTime(session.fetchedAt)}，可下拉刷新',
+                                context.tr('实时连接暂不可用 · 数据更新于 {0}，可下拉刷新', [
+                                  dateTime(session.fetchedAt),
+                                ]),
                                 style: TextStyle(fontSize: 11, color: p.muted),
                               ),
                             if (servers.length > 500)
-                              const Notice(
-                                '此站点超过 500 台服务器，首期仅订阅前 500 台；其余指标通过刷新更新。',
+                              Notice(
+                                context.tr(
+                                  '此站点超过 500 台服务器，首期仅订阅前 500 台；其余指标通过刷新更新。',
+                                ),
                               ),
                             const SizedBox(height: 8),
                             if (!session.loading)
@@ -575,7 +594,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                                 scrollDirection: Axis.horizontal,
                                 child: Row(
                                   children: [
-                                    _regionFilter('全部', '全部 ${servers.length}'),
+                                    _regionFilter(
+                                      '全部',
+                                      context.tr('全部 {0}', [servers.length]),
+                                    ),
                                     for (final e in regions.entries)
                                       _regionFilter(
                                         e.key,
@@ -589,7 +611,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                       ),
                     ),
                     if (session.loading)
-                      const SliverToBoxAdapter(
+                      SliverToBoxAdapter(
                         child: Padding(
                           padding: EdgeInsets.symmetric(vertical: 64),
                           child: Column(
@@ -602,7 +624,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                                 ),
                               ),
                               SizedBox(height: 14),
-                              Text('正在加载服务器…'),
+                              Text(context.tr('正在加载服务器…')),
                             ],
                           ),
                         ),
@@ -610,17 +632,19 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                     if (!session.loading && servers.isEmpty)
                       SliverToBoxAdapter(
                         child: EmptyState(
-                          session.error == null ? '此站点暂无服务器' : '暂时无法读取服务器',
+                          session.error == null
+                              ? context.tr('此站点暂无服务器')
+                              : context.tr('暂时无法读取服务器'),
                           subtitle: session.error == null
-                              ? '在 Web 后台添加服务器后，下拉刷新即可查看。'
+                              ? context.tr('在 Web 后台添加服务器后，下拉刷新即可查看。')
                               : null,
                         ),
                       ),
                     if (servers.isNotEmpty && visible.isEmpty)
-                      const SliverToBoxAdapter(
+                      SliverToBoxAdapter(
                         child: EmptyState(
-                          '此地区暂无服务器',
-                          subtitle: '选择“全部”查看其他地区。',
+                          context.tr('此地区暂无服务器'),
+                          subtitle: context.tr('选择“全部”查看其他地区。'),
                         ),
                       ),
                     for (final entry in groups.entries) ...[
@@ -635,7 +659,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                                 style: mono(context, size: 11, color: p.muted),
                               ),
                               Text(
-                                '${entry.value.length} 台服务器',
+                                context.tr('{0} 台服务器', [entry.value.length]),
                                 style: TextStyle(fontSize: 11, color: p.muted),
                               ),
                             ],
@@ -685,7 +709,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
                           child: Text(
-                            '已显示当前站点全部服务器',
+                            context.tr('已显示当前站点全部服务器'),
                             textAlign: TextAlign.center,
                             style: TextStyle(fontSize: 11, color: p.muted),
                           ),
@@ -736,9 +760,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
             children: [
               Expanded(
                 child: item(
-                  '服务器',
+                  context.tr('服务器'),
                   Text(
-                    '${session.online} 在线 / ${session.servers.length - session.online} 离线',
+                    context.tr('{0} 在线 / {1} 离线', [
+                      session.online,
+                      session.servers.length - session.online,
+                    ]),
                     style: mono(context, size: 13, weight: FontWeight.w600),
                   ),
                 ),
@@ -746,7 +773,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
               const SizedBox(width: 12),
               Expanded(
                 child: item(
-                  '实时速度',
+                  context.tr('实时速度'),
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
@@ -777,7 +804,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
             children: [
               Expanded(
                 child: item(
-                  '总流量',
+                  context.tr('总流量'),
                   Text(
                     '↓ ${bytes(session.total('net_rx'))}',
                     style: mono(context, size: 13),
@@ -789,12 +816,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                 const SizedBox(width: 12),
                 Expanded(
                   child: item(
-                    '剩余价值',
+                    context.tr('剩余价值'),
                     Text(
                       '¥ ${decimal(remainingValue(session.servers, session.rates, session.now()))}',
                       style: mono(context, size: 15, weight: FontWeight.w600),
                     ),
-                    'CNY · ${session.ratesLabel}',
+                    'CNY · ${context.tr(session.ratesLabel)}',
                   ),
                 ),
               ],
