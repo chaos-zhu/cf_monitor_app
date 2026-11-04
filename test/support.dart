@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:cf_monitor_app/core/api.dart';
 import 'package:cf_monitor_app/core/models.dart';
 import 'package:cf_monitor_app/core/storage.dart';
+import 'package:cf_monitor_app/core/installation.dart';
 
 const siteA = MonitorSite(
   id: 'a',
@@ -96,11 +97,17 @@ class MemoryStorage extends SiteStorage {
   MemoryStorage([List<MonitorSite> initial = const []]) : sites = [...initial];
   List<MonitorSite> sites;
   String? defaultSiteId;
+  bool compactLayout = false;
   final tokens = <String, String>{};
   @override
   Future<String?> readDefaultSiteId() async => defaultSiteId;
   @override
   Future<void> writeDefaultSiteId(String? id) async => defaultSiteId = id;
+  @override
+  Future<bool> readCompactLayout() async => compactLayout;
+  @override
+  Future<void> writeCompactLayout(bool compact) async =>
+      compactLayout = compact;
   @override
   Future<List<MonitorSite>> load() async => [...sites];
   @override
@@ -151,6 +158,15 @@ class FakeApi extends MonitorApi {
   Future<DashboardSnapshot> Function()? dashboardHandler;
   Future<List<MetricSample>> Function(HistoryRange)? historyHandler;
   FakeSocket Function()? socketFactory;
+  Future<String> Function(MonitorSite, String, String, String)?
+  addServerHandler;
+  Future<InstallParameters> Function()? installParametersHandler;
+  final installRequests = <({String siteId, String token})>[];
+  Future<void> Function()? deleteServerHandler;
+  final deletedServers = <({String siteId, String id, String token})>[];
+  final forcedRefreshes = <bool>[];
+  final addedServers =
+      <({String siteId, String token, String name, String group})>[];
   int configCalls = 0, dashboardCalls = 0, loginCalls = 0, historyCalls = 0;
   final sockets = <FakeSocket>[];
   final sitesRequested = <String>[];
@@ -172,10 +188,49 @@ class FakeApi extends MonitorApi {
   }
 
   @override
-  Future<DashboardSnapshot> dashboard(MonitorSite site, {String? token}) async {
+  Future<DashboardSnapshot> dashboard(
+    MonitorSite site, {
+    String? token,
+    bool forceRefresh = false,
+  }) async {
     dashboardCalls++;
+    forcedRefreshes.add(forceRefresh);
     sitesRequested.add(site.id);
     return dashboardHandler != null ? dashboardHandler!() : snapshot();
+  }
+
+  @override
+  Future<String> addServer(
+    MonitorSite site, {
+    required String token,
+    required String name,
+    String group = '',
+  }) async {
+    addedServers.add((siteId: site.id, token: token, name: name, group: group));
+    if (addServerHandler != null) {
+      return addServerHandler!(site, token, name, group);
+    }
+    return 'new-server-id';
+  }
+
+  @override
+  Future<void> deleteServer(
+    MonitorSite site,
+    String id, {
+    required String token,
+  }) async {
+    deletedServers.add((siteId: site.id, id: id, token: token));
+    if (deleteServerHandler != null) await deleteServerHandler!();
+  }
+
+  @override
+  Future<InstallParameters> installParameters(
+    MonitorSite site, {
+    required String token,
+  }) async {
+    installRequests.add((siteId: site.id, token: token));
+    if (installParametersHandler != null) return installParametersHandler!();
+    return const InstallParameters(secret: 'test-install-secret');
   }
 
   @override

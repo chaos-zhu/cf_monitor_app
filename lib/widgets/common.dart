@@ -366,22 +366,23 @@ class ServerCard extends StatelessWidget {
     required this.config,
     required this.now,
     required this.onTap,
+    this.onLongPress,
     super.key,
   });
   final Server server;
   final SiteConfig config;
   final DateTime now;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   @override
   Widget build(BuildContext context) {
     final p = Palette.of(context);
     final online = server.isOnline(now);
-    final ipv4 = configBool(server.data['ip_v4']);
-    final ipv6 = configBool(server.data['ip_v6']);
     return AppPanel(
       padding: EdgeInsets.zero,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(18),
         child: Padding(
           padding: const EdgeInsets.all(15),
@@ -412,17 +413,12 @@ class ServerCard extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            if (ipv4 && ipv6)
-                              _ipBadge('IPv4/6', p)
-                            else if (ipv4)
-                              _ipBadge('IPv4', p)
-                            else if (ipv6)
-                              _ipBadge('IPv6', p),
+                            ServerIpBadge(server: server),
                           ],
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${_compactOs(server.text('os'))} · 运行 ${_compactUptime(server.data['boot_time'], now)}',
+                          '${compactServerOs(server.text('os'))} · 运行 ${compactServerUptime(server.data['boot_time'], now)}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(fontSize: 11, color: p.muted),
@@ -537,42 +533,6 @@ class ServerCard extends StatelessWidget {
     );
   }
 
-  Widget _ipBadge(String label, Palette p) => Padding(
-    padding: const EdgeInsets.only(left: 5),
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-      decoration: BoxDecoration(
-        color: switch (label) {
-          'IPv4' => p.dark ? const Color(0xffb392f0) : const Color(0xff7c3aed),
-          'IPv6' => p.dark ? const Color(0xfff778ba) : const Color(0xffdb2777),
-          _ => p.dark ? const Color(0xff39d2c0) : const Color(0xff0d9488),
-        },
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        style: TextStyle(
-          fontSize: 9,
-          fontWeight: FontWeight.w600,
-          color: p.dark ? Colors.black : Colors.white,
-        ),
-      ),
-    ),
-  );
-
-  String _compactOs(String os) => os
-      .replaceAll(RegExp(r'\s*\([^)]*\)'), '')
-      .replaceAll('GNU/Linux ', '')
-      .trim();
-
-  String _compactUptime(Object? bootTime, DateTime now) {
-    final boot = metricTime(bootTime);
-    if (boot == null || boot.isAfter(now)) return '—';
-    final elapsed = now.difference(boot);
-    return elapsed.inDays > 0 ? '${elapsed.inDays} 天' : '${elapsed.inHours} 小时';
-  }
-
   Widget _line(BuildContext context, String key, String value) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: Row(
@@ -600,6 +560,61 @@ class ServerCard extends StatelessWidget {
       ],
     ),
   );
+}
+
+String compactServerOs(String os) => os
+    .replaceAll(RegExp(r'\s*\([^)]*\)'), '')
+    .replaceAll('GNU/Linux ', '')
+    .trim();
+
+String compactServerUptime(Object? bootTime, DateTime now) {
+  final boot = metricTime(bootTime);
+  if (boot == null || boot.isAfter(now)) return '—';
+  final elapsed = now.difference(boot);
+  return elapsed.inDays > 0 ? '${elapsed.inDays} 天' : '${elapsed.inHours} 小时';
+}
+
+class ServerIpBadge extends StatelessWidget {
+  const ServerIpBadge({required this.server, super.key});
+  final Server server;
+
+  @override
+  Widget build(BuildContext context) {
+    final ipv4 = configBool(server.data['ip_v4']);
+    final ipv6 = configBool(server.data['ip_v6']);
+    if (!ipv4 && !ipv6) return const SizedBox.shrink();
+    final label = ipv4 && ipv6
+        ? 'IPv4/6'
+        : ipv4
+        ? 'IPv4'
+        : 'IPv6';
+    final p = Palette.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: 5),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+        decoration: BoxDecoration(
+          color: switch (label) {
+            'IPv4' =>
+              p.dark ? const Color(0xffb392f0) : const Color(0xff7c3aed),
+            'IPv6' =>
+              p.dark ? const Color(0xfff778ba) : const Color(0xffdb2777),
+            _ => p.dark ? const Color(0xff39d2c0) : const Color(0xff0d9488),
+          },
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+            color: p.dark ? Colors.black : Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class LatencyPanel extends StatelessWidget {

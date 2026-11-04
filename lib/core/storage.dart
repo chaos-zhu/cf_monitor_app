@@ -12,6 +12,8 @@ abstract class SiteStorage {
   Future<void> writeToken(String id, String? token);
   Future<String?> readDefaultSiteId();
   Future<void> writeDefaultSiteId(String? id);
+  Future<bool> readCompactLayout() => Future.value(false);
+  Future<void> writeCompactLayout(bool compact) => Future.value();
   Future<Map<String, dynamic>?> readRates() => Future.value(null);
   Future<void> writeRates(Map<String, dynamic> rates) => Future.value();
 }
@@ -20,6 +22,7 @@ class DeviceSiteStorage extends SiteStorage {
   static const _sitesKey = 'cf_monitor.sites.v1';
   static const _ratesKey = 'cf_monitor.rates.v1';
   static const _defaultSiteKey = 'cf_monitor.default_site.v1';
+  static const _compactLayoutKey = 'cf_monitor.compact_layout.v1';
   final _secure = const FlutterSecureStorage(
     iOptions: IOSOptions(
       accessibility: KeychainAccessibility.first_unlock_this_device,
@@ -47,6 +50,20 @@ class DeviceSiteStorage extends SiteStorage {
   @override
   Future<String?> readDefaultSiteId() async =>
       (await SharedPreferences.getInstance()).getString(_defaultSiteKey);
+
+  @override
+  Future<bool> readCompactLayout() async =>
+      (await SharedPreferences.getInstance()).getBool(_compactLayoutKey) ??
+      false;
+
+  @override
+  Future<void> writeCompactLayout(bool compact) async {
+    final ok = await (await SharedPreferences.getInstance()).setBool(
+      _compactLayoutKey,
+      compact,
+    );
+    if (!ok) throw StateError('保存布局失败');
+  }
 
   @override
   Future<void> writeDefaultSiteId(String? id) async {
@@ -94,6 +111,8 @@ class SiteController extends ChangeNotifier {
   MonitorSite? get defaultSite =>
       _sites.where((site) => site.id == _defaultSiteId).firstOrNull;
   bool loading = true;
+  bool _compactLayout = false;
+  bool get compactLayout => _compactLayout;
   String? error;
   bool _disposed = false;
   Future<void> _writes = Future.value();
@@ -120,6 +139,7 @@ class SiteController extends ChangeNotifier {
     _notify();
     try {
       _sites = await storage.load();
+      _compactLayout = await storage.readCompactLayout();
       final defaultId = await storage.readDefaultSiteId();
       _defaultSiteId = _sites.any((site) => site.id == defaultId)
           ? defaultId
@@ -199,6 +219,12 @@ class SiteController extends ChangeNotifier {
   });
 
   Future<void> clearToken(String id) => storage.writeToken(id, null);
+
+  Future<void> setCompactLayout(bool compact) => _write(() async {
+    await storage.writeCompactLayout(compact);
+    _compactLayout = compact;
+    _notify();
+  });
   @override
   void dispose() {
     _disposed = true;

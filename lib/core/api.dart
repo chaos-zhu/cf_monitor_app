@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:web_socket_channel/io.dart';
 import 'models.dart';
+import 'installation.dart';
 
 enum FailureKind {
   network,
@@ -53,8 +54,27 @@ class SocketConnection implements LiveConnection {
 abstract class MonitorApi {
   Future<SiteConfig> config(MonitorSite site, {String? token});
   Future<String> login(MonitorSite site, String username, String password);
-  Future<DashboardSnapshot> dashboard(MonitorSite site, {String? token});
+  Future<DashboardSnapshot> dashboard(
+    MonitorSite site, {
+    String? token,
+    bool forceRefresh = false,
+  });
   Future<Server> detail(MonitorSite site, String id, {String? token});
+  Future<String> addServer(
+    MonitorSite site, {
+    required String token,
+    required String name,
+    String group = '',
+  });
+  Future<void> deleteServer(
+    MonitorSite site,
+    String id, {
+    required String token,
+  });
+  Future<InstallParameters> installParameters(
+    MonitorSite site, {
+    required String token,
+  });
   Future<List<MetricSample>> history(
     MonitorSite site,
     String id,
@@ -123,6 +143,7 @@ class WorkerApi extends MonitorApi {
         final json = jsonMap(data);
         final code = '${json['message'] ?? json['error'] ?? ''}';
         final message = switch (status) {
+          400 when code == 'invalidServerName' => '服务器名称不符合站点要求，请修改后重试',
           401 => '登录已失效或当前数据需要登录，请重新登录',
           403 => '请求被站点验证或防护拦截，当前版本不支持人机验证',
           404 => '未找到站点接口或服务器，服务器可能已被删除',
@@ -207,14 +228,121 @@ class WorkerApi extends MonitorApi {
   }
 
   @override
-  Future<DashboardSnapshot> dashboard(MonitorSite site, {String? token}) async {
+  Future<DashboardSnapshot> dashboard(
+    MonitorSite site, {
+    String? token,
+    bool forceRefresh = false,
+  }) async {
     try {
-      return DashboardSnapshot.fromJson(
+      // Mutations invalidate only the Worker isolate that handled them. Read an
+      // authoritative roster when returning from management, as Web does.
+      DashboardSnapshot? roster;
+      if (forceRefresh && token != null) {
+        roster = DashboardSnapshot.fromJson(
+          jsonMap(
+            await _request(
+              site,
+              '/admin/api',
+              token: token,
+              body: {'action': 'list', 'refresh': true},
+            ),
+          ),
+        );
+      }
+      final snapshot = DashboardSnapshot.fromJson(
         jsonMap(await _request(site, '/api/servers', token: token)),
+      );
+      if (roster == null) return snapshot;
+      final byId = {for (final server in snapshot.servers) server.id: server};
+      return DashboardSnapshot(
+        servers: roster.servers
+            .map(
+              (server) => Server({...?byId[server.id]?.data, ...server.data}),
+            )
+            .toList(),
+        config: snapshot.config,
+        reports: snapshot.reports,
       );
     } on FormatException {
       throw const ApiFailure('服务器列表格式不受支持', kind: FailureKind.protocol);
     }
+  }
+
+  @override
+  Future<String> addServer(
+    MonitorSite site, {
+    required String token,
+    required String name,
+    String group = '',
+  }) async {
+    if (token.isEmpty) {
+      throw const ApiFailure('请先登录此站点', kind: FailureKind.authentication);
+    }
+    final result = jsonMap(
+      await _request(
+        site,
+        '/admin/api',
+        token: token,
+        body: {
+          'action': 'add',
+          'name': name.trim(),
+          'server_group': group.trim(),
+        },
+      ),
+    );
+    final id = result['id'];
+    if (result['success'] != true || id is! String || id.isEmpty) {
+      throw const ApiFailure('新增服务器未成功，请刷新列表确认后重试', kind: FailureKind.protocol);
+    }
+    return id;
+  }
+
+  @override
+  Future<void> deleteServer(
+    MonitorSite site,
+    String id, {
+    required String token,
+  }) async {
+    if (token.isEmpty) {
+      throw const ApiFailure('请先登录此站点', kind: FailureKind.authentication);
+    }
+    final result = jsonMap(
+      await _request(
+        site,
+        '/admin/api',
+        token: token,
+        body: {'action': 'delete', 'id': id},
+      ),
+    );
+    if (result['success'] != true) {
+      throw const ApiFailure('删除服务器未成功，请刷新列表确认后重试', kind: FailureKind.protocol);
+    }
+  }
+
+  @override
+  Future<InstallParameters> installParameters(
+    MonitorSite site, {
+    required String token,
+  }) async {
+    if (token.isEmpty) {
+      throw const ApiFailure('请先登录此站点', kind: FailureKind.authentication);
+    }
+    final result = jsonMap(
+      await _request(
+        site,
+        '/admin/api',
+        token: token,
+        body: {'action': 'get_settings'},
+      ),
+    );
+    final secret = result['api_secret'];
+    if (result['success'] == false || secret is! String || secret.isEmpty) {
+      throw const ApiFailure('无法获取安装密钥，请重试获取安装命令', kind: FailureKind.protocol);
+    }
+    return InstallParameters(
+      secret: secret,
+      userAgent: '${jsonMap(result['settings'])['ua'] ?? ''}',
+    );
   }
 
   @override

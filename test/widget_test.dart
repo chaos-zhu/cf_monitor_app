@@ -1,15 +1,18 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cf_monitor_app/app.dart';
 import 'package:cf_monitor_app/core/api.dart';
 import 'package:cf_monitor_app/core/models.dart';
+import 'package:cf_monitor_app/core/installation.dart';
 import 'package:cf_monitor_app/features/dashboard_page.dart';
 import 'package:cf_monitor_app/widgets/common.dart';
 import 'package:cf_monitor_app/widgets/metric_chart.dart';
+import 'package:cf_monitor_app/widgets/server_list_tile.dart';
 import 'support.dart';
 
 Future<void> launch(
@@ -56,7 +59,577 @@ Future<void> finish(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> finishInstallation(WidgetTester tester) async {
+  final button = find.byKey(const Key('finish-server'));
+  await tester.scrollUntilVisible(
+    button,
+    250,
+    scrollable: find
+        .descendant(
+          of: find.byKey(const PageStorageKey('server-installation')),
+          matching: find.byType(Scrollable),
+        )
+        .first,
+  );
+  await click(tester, button);
+}
+
 void main() {
+  testWidgets('切换列表不额外请求或重连，首屏展示多台且保留详情和长按菜单', (tester) async {
+    final api = FakeApi();
+    api.dashboardHandler = () async => snapshot([
+      for (var i = 0; i < 6; i++)
+        exampleServer(id: 'server-$i').merge({'name': '服务器 $i'}),
+    ]);
+    final storage = MemoryStorage([siteA])..tokens['a'] = jwt();
+    await launch(tester, api, storage);
+    tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+    addTearDown(tester.view.resetPadding);
+    await tester.pumpAndSettle();
+    await click(tester, find.text('进入站点'));
+    final calls = api.dashboardCalls;
+    final sockets = api.sockets.length;
+    final summaryRect = tester.getRect(find.byType(AppPanel).first);
+    final filtersRect = tester.getRect(find.byKey(const Key('region-filters')));
+    final toggle = find.byKey(const Key('toggle-server-layout'));
+    expect(
+      tester.getCenter(toggle).dx,
+      greaterThan(tester.getCenter(find.byKey(const Key('add-server'))).dx),
+    );
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(api.dashboardCalls, calls);
+    expect(api.sockets, hasLength(sockets));
+    expect(find.byType(ServerCard), findsNothing);
+    expect(storage.compactLayout, isTrue);
+    expect(tester.getRect(find.byType(AppPanel).first), summaryRect);
+    expect(
+      tester.getRect(find.byKey(const Key('region-filters'))),
+      filtersRect,
+    );
+    expect(
+      tester.getBottomRight(find.byKey(const ValueKey('a:server-1'))).dy,
+      lessThanOrEqualTo(810),
+    );
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('a:server-2'))).dy,
+      lessThan(810),
+    );
+    expect(find.text('CPU'), findsAtLeastNWidgets(2));
+    final sampleTime = DateTime.now()
+        .add(const Duration(seconds: 1))
+        .millisecondsSinceEpoch;
+    api.sockets.single.emit({
+      'type': 'batchUpdate',
+      'ts': sampleTime,
+      'updates': [
+        {
+          'serverId': 'server-0',
+          'samples': [
+            {
+              'ts': sampleTime,
+              'data': {'cpu': 94.7},
+            },
+          ],
+        },
+      ],
+    });
+    await tester.pump();
+    expect(find.text('94.7%'), findsOneWidget);
+    await tester.longPress(find.byType(ServerListTile).first);
+    await tester.pumpAndSettle();
+    expect(find.text('删除'), findsOneWidget);
+    await click(tester, find.text('安装命令'));
+    expect(
+      tester
+          .widget<SelectableText>(find.byKey(const Key('install-command')))
+          .data,
+      contains("-id='server-0'"),
+    );
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await click(tester, find.byType(ServerListTile).first);
+    expect(find.text('系统信息'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(ServerListTile), findsWidgets);
+    await tester.scrollUntilVisible(
+      toggle,
+      -250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await click(tester, toggle);
+    expect(find.byType(ServerListTile), findsNothing);
+    expect(find.byType(ServerCard), findsWidgets);
+    expect(storage.compactLayout, isFalse);
+    await finish(tester);
+  });
+
+  testWidgets('列表布局在切换站点和重启后保留，仍只展示当前站点服务器', (tester) async {
+    final storage = MemoryStorage([siteA, siteB]);
+    final api = FakeApi();
+    await launch(tester, api, storage);
+    await click(tester, find.text('进入站点').first);
+    await click(tester, find.byKey(const Key('toggle-server-layout')));
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await click(tester, find.text('进入站点').last);
+    expect(find.byKey(const ValueKey('b:same-id')), findsOneWidget);
+    expect(find.byKey(const ValueKey('a:same-id')), findsNothing);
+    expect(find.byType(ServerListTile), findsOneWidget);
+    await finish(tester);
+    await launch(tester, FakeApi(), storage);
+    await click(tester, find.text('进入站点').first);
+    expect(find.byType(ServerListTile), findsOneWidget);
+    await finish(tester);
+  });
+
+  testWidgets('紧凑列表窄屏深色大字体保留 IP 标识和操作，长线路名称可横滑', (tester) async {
+    final api = FakeApi();
+    api.settings = publicConfig({'custom_ct_name': '非常长的自定义线路名称'});
+    api.dashboardHandler = () async => snapshot([
+      exampleServer().merge({
+        'name': '很长的服务器名称需要截断并保留IPv4和IPv6标识',
+        'ip_v6': '1',
+        'net_in_speed': 9876543210123,
+        'net_out_speed': 8765432101234,
+      }),
+    ]);
+    final storage = MemoryStorage([siteA.copyWith(name: '很长的站点名称需要省略显示')])
+      ..compactLayout = true;
+    await launch(
+      tester,
+      api,
+      storage,
+      size: const Size(320, 900),
+      scale: 1.5,
+      dark: true,
+    );
+    await click(tester, find.text('进入站点'));
+    expect(find.text('IPv4/6'), findsOneWidget);
+    expect(find.byKey(const Key('add-server')).hitTestable(), findsOneWidget);
+    expect(
+      find.byKey(const Key('toggle-server-layout')).hitTestable(),
+      findsOneWidget,
+    );
+    expect(find.byType(ServerListTile), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  testWidgets('返回列表强制刷新新服务器，长按可再次进入安装命令页', (tester) async {
+    final api = FakeApi();
+    api.dashboardHandler = () async => snapshot([
+      exampleServer(),
+      if (api.forcedRefreshes.where((force) => force).length >= 2)
+        Server({'id': 'new-server-id', 'name': '新增机器'}),
+    ]);
+    await launch(tester, api, MemoryStorage([siteA])..tokens['a'] = jwt());
+    await click(tester, find.text('进入站点'));
+    await click(tester, find.byKey(const Key('add-server')));
+    await tester.enterText(find.byKey(const Key('server-name')), '新增机器');
+    await click(tester, find.byKey(const Key('submit-server')));
+    expect(api.forcedRefreshes.where((force) => force).length, 1);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(api.forcedRefreshes.where((force) => force).length, 2);
+    final card = find.byKey(const ValueKey('a:new-server-id'));
+    await tester.scrollUntilVisible(
+      card,
+      350,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.longPressAt(tester.getTopLeft(card) + const Offset(30, 30));
+    await tester.pumpAndSettle();
+    expect(find.text('删除'), findsOneWidget);
+    await click(tester, find.text('安装命令'));
+    expect(find.text('服务器已创建'), findsNothing);
+    final command = tester
+        .widget<SelectableText>(find.byKey(const Key('install-command')))
+        .data!;
+    expect(command, contains("-id='new-server-id'"));
+    expect(api.addedServers, hasLength(1));
+    expect(api.installRequests, hasLength(2));
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(CustomScrollView), findsOneWidget);
+    await finish(tester);
+  });
+
+  testWidgets('长按安装命令未登录先登录，取消不读取安装密钥', (tester) async {
+    final api = FakeApi();
+    await launch(tester, api, MemoryStorage([siteA]));
+    await click(tester, find.text('进入站点'));
+    await tester.longPress(find.byType(ServerCard));
+    await tester.pumpAndSettle();
+    await click(tester, find.text('安装命令'));
+    expect(find.byKey(const Key('password')), findsOneWidget);
+    expect(api.installRequests, isEmpty);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(ServerCard), findsOneWidget);
+    await tester.longPress(find.byType(ServerCard));
+    await tester.pumpAndSettle();
+    await click(tester, find.text('安装命令'));
+    await tester.enterText(find.byKey(const Key('password')), 'password');
+    await click(tester, find.byKey(const Key('connect-site')));
+    expect(api.installRequests.single.siteId, 'a');
+    expect(
+      tester
+          .widget<SelectableText>(find.byKey(const Key('install-command')))
+          .data,
+      contains("-id='same-id'"),
+    );
+    expect(api.addedServers, isEmpty);
+    await finish(tester);
+  });
+
+  testWidgets('GitHub 代理可下拉选择或输入，非法输入禁用命令，Docker 不使用代理', (tester) async {
+    final api = FakeApi();
+    await launch(tester, api, MemoryStorage([siteA])..tokens['a'] = jwt());
+    await click(tester, find.text('进入站点'));
+    await tester.longPress(find.byType(ServerCard));
+    await tester.pumpAndSettle();
+    await click(tester, find.text('安装命令'));
+    await click(tester, find.byKey(const Key('github-proxy-presets')));
+    await click(tester, find.text('https://ghfast.top/'));
+    expect(
+      tester
+          .widget<SelectableText>(find.byKey(const Key('install-command')))
+          .data,
+      contains("--install-ghproxy='https://ghfast.top'"),
+    );
+    await tester.enterText(
+      find.byKey(const Key('github-proxy')),
+      'https://custom.example.com/gh/',
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<SelectableText>(find.byKey(const Key('install-command')))
+          .data,
+      contains(
+        'https://custom.example.com/gh/https://raw.githubusercontent.com',
+      ),
+    );
+    await tester.enterText(find.byKey(const Key('github-proxy')), 'invalid');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('copy-install-command')), findsNothing);
+    expect(find.textContaining('请输入有效的 HTTP'), findsOneWidget);
+    await click(tester, find.text('Docker'));
+    expect(
+      tester.widget<TextField>(find.byKey(const Key('github-proxy'))).enabled,
+      isFalse,
+    );
+    expect(
+      tester
+          .widget<SelectableText>(find.byKey(const Key('install-command')))
+          .data,
+      startsWith('docker run'),
+    );
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  testWidgets('长按删除需确认，失败保留服务器，成功刷新且仅删除所属站点', (tester) async {
+    final api = FakeApi();
+    final storage = MemoryStorage([siteA, siteB])..tokens['b'] = jwt();
+    await launch(tester, api, storage);
+    await click(tester, find.text('进入站点').last);
+    await tester.longPress(find.byType(ServerCard));
+    await tester.pumpAndSettle();
+    await click(tester, find.text('删除'));
+    await click(tester, find.text('取消'));
+    expect(api.deletedServers, isEmpty);
+    api.deleteServerHandler = () async => throw const ApiFailure('删除失败');
+    await tester.longPress(find.byType(ServerCard));
+    await tester.pumpAndSettle();
+    await click(tester, find.text('删除'));
+    await click(tester, find.byKey(const Key('confirm-delete-server')));
+    expect(find.text('删除失败'), findsOneWidget);
+    expect(find.byType(ServerCard), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    api.deleteServerHandler = () async {
+      api.dashboardHandler = () async => snapshot([]);
+    };
+    await tester.longPress(find.byType(ServerCard));
+    await tester.pumpAndSettle();
+    await click(tester, find.text('删除'));
+    await click(tester, find.byKey(const Key('confirm-delete-server')));
+    expect(api.deletedServers.last.siteId, 'b');
+    expect(api.deletedServers.last.id, 'same-id');
+    expect(api.deletedServers.last.token, storage.tokens['b']);
+    expect(api.forcedRefreshes.last, isTrue);
+    expect(find.byType(ServerCard), findsNothing);
+    expect(find.text('服务器已删除'), findsOneWidget);
+    await finish(tester);
+  });
+
+  testWidgets('删除时凭据失效需重新登录，取消不重试，登录成功仅重试当前服务器', (tester) async {
+    final api = FakeApi();
+    final storage = MemoryStorage([siteA])..tokens['a'] = jwt();
+    api.deleteServerHandler = () async =>
+        throw const ApiFailure('登录失效', kind: FailureKind.authentication);
+    await launch(tester, api, storage);
+    await click(tester, find.text('进入站点'));
+    await tester.longPress(find.byType(ServerCard));
+    await tester.pumpAndSettle();
+    await click(tester, find.text('删除'));
+    await click(tester, find.byKey(const Key('confirm-delete-server')));
+    expect(find.byKey(const Key('password')), findsOneWidget);
+    expect(storage.tokens['a'], isNull);
+    expect(api.deletedServers, hasLength(1));
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(ServerCard), findsOneWidget);
+    expect(api.deletedServers, hasLength(1));
+
+    storage.tokens['a'] = jwt();
+    await tester.longPress(find.byType(ServerCard));
+    await tester.pumpAndSettle();
+    await click(tester, find.text('删除'));
+    await click(tester, find.byKey(const Key('confirm-delete-server')));
+    expect(api.deletedServers, hasLength(2));
+    api.deleteServerHandler = () async {
+      api.dashboardHandler = () async => snapshot([]);
+    };
+    await tester.enterText(find.byKey(const Key('password')), 'password');
+    await click(tester, find.byKey(const Key('connect-site')));
+    expect(api.deletedServers, hasLength(3));
+    expect(api.deletedServers.last.siteId, 'a');
+    expect(api.deletedServers.last.id, 'same-id');
+    expect(api.deletedServers.last.token, storage.tokens['a']);
+    expect(find.byType(ServerCard), findsNothing);
+    expect(api.forcedRefreshes.last, isTrue);
+    await finish(tester);
+  });
+
+  testWidgets('新增入口先登录，取消留在列表，登录成功可创建并刷新所属站点', (tester) async {
+    final api = FakeApi();
+    final storage = MemoryStorage([siteA, siteB]);
+    await launch(tester, api, storage);
+    await click(tester, find.text('进入站点').first);
+    await click(tester, find.byKey(const Key('add-server')));
+    expect(find.byKey(const Key('password')), findsOneWidget);
+    expect(find.byKey(const Key('server-name')), findsNothing);
+    expect(api.addedServers, isEmpty);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(ServerCard), findsOneWidget);
+    await click(tester, find.byKey(const Key('add-server')));
+    await tester.enterText(find.byKey(const Key('password')), 'password');
+    await click(tester, find.byKey(const Key('connect-site')));
+    expect(find.text('新增服务器'), findsOneWidget);
+    expect(find.text('主监控站'), findsNothing);
+    expect(find.textContaining('Web 后台'), findsNothing);
+    expect(storage.tokens['a'], isNotNull);
+    await click(tester, find.byKey(const Key('submit-server')));
+    expect(find.text('请输入服务器名称'), findsOneWidget);
+    expect(api.addedServers, isEmpty);
+    await tester.enterText(find.byKey(const Key('server-name')), '香港 2');
+    await tester.enterText(find.byKey(const Key('server-group')), 'Asia');
+    final calls = api.dashboardCalls;
+    await click(tester, find.byKey(const Key('submit-server')));
+    expect(api.addedServers.single.siteId, 'a');
+    expect(api.addedServers.single.name, '香港 2');
+    expect(api.addedServers.single.group, 'Asia');
+    expect(api.addedServers.single.token, storage.tokens['a']);
+    expect(api.dashboardCalls, greaterThan(calls));
+    expect(find.text('服务器已创建'), findsNothing);
+    expect(find.byKey(const Key('install-command')), findsOneWidget);
+    expect(api.installRequests.single.siteId, 'a');
+    expect(api.installRequests.single.token, storage.tokens['a']);
+    await finishInstallation(tester);
+    expect(find.byType(ServerCard), findsOneWidget);
+    await finish(tester);
+  });
+
+  testWidgets('已登录直接新增，提交期间禁止重复请求，401 重新登录后保留草稿', (tester) async {
+    final storage = MemoryStorage([siteA])..tokens['a'] = jwt();
+    final api = FakeApi();
+    final pending = Completer<String>();
+    api.addServerHandler = (_, _, _, _) => pending.future;
+    await launch(tester, api, storage);
+    await click(tester, find.text('进入站点'));
+    await click(tester, find.byKey(const Key('add-server')));
+    expect(find.byKey(const Key('password')), findsNothing);
+    await tester.enterText(find.byKey(const Key('server-name')), '草稿');
+    await tester.tap(find.byKey(const Key('submit-server')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('submit-server')));
+    await tester.pump();
+    expect(api.addedServers, hasLength(1));
+    pending.completeError(
+      const ApiFailure('登录失效', kind: FailureKind.authentication),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('登录失效'), findsOneWidget);
+    await click(tester, find.text('重新登录并创建'));
+    await tester.enterText(find.byKey(const Key('password')), 'password');
+    api.addServerHandler = (_, _, _, _) async => 'new-id';
+    await click(tester, find.byKey(const Key('connect-site')));
+    expect(api.addedServers, hasLength(2));
+    expect(api.addedServers.last.name, '草稿');
+    expect(find.byKey(const Key('install-command')), findsOneWidget);
+    await finishInstallation(tester);
+    expect(find.byType(ServerCard), findsOneWidget);
+    await finish(tester);
+  });
+
+  testWidgets('创建后可切换系统并复制完整安装命令，小屏大字体不溢出', (tester) async {
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    final api = FakeApi();
+    api.installParametersHandler = () async => const InstallParameters(
+      secret: 'install-secret',
+      userAgent: 'custom-agent',
+    );
+    await launch(
+      tester,
+      api,
+      MemoryStorage([siteA])..tokens['a'] = jwt(),
+      size: const Size(320, 900),
+      scale: 1.5,
+      dark: true,
+    );
+    await click(tester, find.text('进入站点'));
+    await click(tester, find.byKey(const Key('add-server')));
+    await tester.enterText(find.byKey(const Key('server-name')), '测试机器');
+    await click(tester, find.byKey(const Key('submit-server')));
+    final command = tester
+        .widget<SelectableText>(find.byKey(const Key('install-command')))
+        .data!;
+    expect(command, contains("-id='new-server-id'"));
+    expect(command, contains("-secret='install-secret'"));
+    expect(command, contains("-ua='custom-agent'"));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('copy-install-command')),
+      250,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const PageStorageKey('server-installation')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await click(tester, find.byKey(const Key('copy-install-command')));
+    expect(copied, command);
+    await tester.scrollUntilVisible(
+      find.text('Windows'),
+      -200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const PageStorageKey('server-installation')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await click(tester, find.text('Windows'));
+    expect(
+      tester
+          .widget<SelectableText>(find.byKey(const Key('install-command')))
+          .data,
+      contains('install.ps1'),
+    );
+    await click(tester, find.text('Docker'));
+    expect(
+      tester
+          .widget<SelectableText>(find.byKey(const Key('install-command')))
+          .data,
+      startsWith('docker run'),
+    );
+    expect(api.addedServers, hasLength(1));
+    expect(api.installRequests, hasLength(1));
+    expect(tester.takeException(), isNull);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(ServerCard), findsOneWidget);
+    await finish(tester);
+  });
+
+  testWidgets('创建成功后获取命令失败仅重试命令，401 登录后不重复创建', (tester) async {
+    final api = FakeApi();
+    api.installParametersHandler = () async =>
+        throw const ApiFailure('获取命令失败', kind: FailureKind.network);
+    await launch(tester, api, MemoryStorage([siteA])..tokens['a'] = jwt());
+    await click(tester, find.text('进入站点'));
+    await click(tester, find.byKey(const Key('add-server')));
+    await tester.enterText(find.byKey(const Key('server-name')), 'test');
+    await click(tester, find.byKey(const Key('submit-server')));
+    expect(find.text('服务器已创建'), findsNothing);
+    expect(find.text('获取命令失败'), findsOneWidget);
+    expect(find.byKey(const Key('submit-server')), findsNothing);
+    api.installParametersHandler = () async =>
+        throw const ApiFailure('登录失效', kind: FailureKind.authentication);
+    await click(tester, find.text('重新获取安装命令'));
+    await click(tester, find.text('重新登录并获取安装命令'));
+    await tester.enterText(find.byKey(const Key('password')), 'password');
+    api.installParametersHandler = () async =>
+        const InstallParameters(secret: 'secret');
+    await click(tester, find.byKey(const Key('connect-site')));
+    expect(find.byKey(const Key('install-command')), findsOneWidget);
+    expect(api.addedServers, hasLength(1));
+    expect(api.installRequests, hasLength(3));
+    await finish(tester);
+  });
+
+  testWidgets('长站点名在窄屏大字体下保留状态点和新增入口', (tester) async {
+    final site = siteA.copyWith(name: '这是一个很长的站点名称需要省略显示');
+    await launch(
+      tester,
+      FakeApi(),
+      MemoryStorage([site]),
+      size: const Size(320, 900),
+      scale: 1.5,
+    );
+    await click(tester, find.text('进入站点'));
+    final name = tester.widget<Text>(
+      find.byKey(const Key('dashboard-site-name')),
+    );
+    expect(name.maxLines, 1);
+    expect(name.overflow, TextOverflow.ellipsis);
+    expect(find.byKey(const Key('connection-dot')), findsOneWidget);
+    expect(find.byKey(const Key('add-server')).hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  testWidgets('新增前凭据过期或被服务端撤销时转登录，绝不匿名创建', (tester) async {
+    for (final revoked in [false, true]) {
+      final storage = MemoryStorage([siteA])..tokens['a'] = jwt();
+      final api = FakeApi();
+      await launch(tester, api, storage);
+      await click(tester, find.text('进入站点'));
+      if (revoked) {
+        api.configHandler = (_, _) async =>
+            throw const ApiFailure('凭据失效', kind: FailureKind.authentication);
+      } else {
+        storage.tokens['a'] = jwt(expired: true);
+      }
+      await click(tester, find.byKey(const Key('add-server')));
+      expect(find.byKey(const Key('password')), findsOneWidget);
+      expect(find.byKey(const Key('server-name')), findsNothing);
+      expect(storage.tokens['a'], isNull);
+      expect(api.addedServers, isEmpty);
+      await finish(tester);
+    }
+  });
+
   testWidgets('点击立即进入列表页，配置与列表统一加载，实时握手不阻塞数据展示', (tester) async {
     final config = Completer<SiteConfig>();
     final data = Completer<DashboardSnapshot>();
@@ -89,13 +662,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(ServerCard), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.text('正在连接'), findsOneWidget);
+    expect(find.byTooltip('正在连接'), findsOneWidget);
     expect(find.textContaining('快照'), findsNothing);
     expect(find.textContaining('实时连接暂不可用'), findsNothing);
     expect(api.dashboardCalls, 1);
     ready.complete();
     await tester.pumpAndSettle();
-    expect(find.text('实时连接'), findsOneWidget);
+    expect(find.byTooltip('实时连接'), findsOneWidget);
     // The post-subscription reconciliation runs in the background.
     expect(api.dashboardCalls, 2);
     expect(api.configCalls, 1);
@@ -137,12 +710,12 @@ void main() {
     api.socketFactory = () => FakeSocket(ready: retry.future);
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
-    expect(find.text('正在连接'), findsOneWidget);
+    expect(find.byTooltip('正在连接'), findsOneWidget);
     expect(find.textContaining('实时连接暂不可用'), findsOneWidget);
     expect(find.byType(ServerCard), findsOneWidget);
     retry.complete();
     await tester.pumpAndSettle();
-    expect(find.text('实时连接'), findsOneWidget);
+    expect(find.byTooltip('实时连接'), findsOneWidget);
     expect(find.textContaining('实时连接暂不可用'), findsNothing);
     await finish(tester);
   });
@@ -281,7 +854,7 @@ void main() {
     expect(storage.sites.single.name, '主监控站');
     expect(find.byType(ServerCard), findsOneWidget);
     expect(find.text('CPU'), findsOneWidget);
-    expect(find.text('实时连接'), findsOneWidget);
+    expect(find.byTooltip('实时连接'), findsOneWidget);
     await click(tester, find.byType(ServerCard));
     expect(find.text('CPU 使用率'), findsOneWidget);
     expect(api.historyCalls, 1);
@@ -546,12 +1119,16 @@ void main() {
     expect(find.text('点击 ··· 编辑'), findsNothing);
     await click(tester, find.text('进入站点'));
     expect(find.byType(AppBar), findsNothing);
-    final status = find.ancestor(
-      of: find.text('实时连接'),
-      matching: find.byType(StatusPill),
-    );
+    final name = find.byKey(const Key('dashboard-site-name'));
+    final status = find.byKey(const Key('connection-dot'));
+    expect(find.text('实时连接'), findsNothing);
     expect(
-      tester.getRect(status).right,
+      tester.getRect(status).left - tester.getRect(name).right,
+      closeTo(6, 1),
+    );
+    expect(tester.widget<Text>(name).style!.fontSize, 18);
+    expect(
+      tester.getRect(find.byKey(const Key('toggle-server-layout'))).right,
       closeTo(tester.getRect(find.byType(AppPanel).first).right, 1),
     );
     final latency = find.text('57ms 延迟');

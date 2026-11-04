@@ -41,6 +41,169 @@ void main() {
     api = WorkerApi(dio: Dio()..httpClientAdapter = transport);
   });
   tearDown(() => api.dispose());
+  test('删除使用所属站点凭据和服务器 ID，失败响应不当作成功', () async {
+    transport.reply = (_) => {'success': true};
+    await api.deleteServer(siteB, 'server-id', token: 'token-b');
+    expect(
+      transport.requests.single.uri.toString(),
+      'https://b.example.com/admin/api',
+    );
+    expect(transport.requests.single.method, 'POST');
+    expect(
+      transport.requests.single.headers['Authorization'],
+      'Bearer token-b',
+    );
+    expect(transport.requests.single.data, {
+      'action': 'delete',
+      'id': 'server-id',
+    });
+    transport.reply = (_) => {'success': false};
+    await expectLater(
+      api.deleteServer(siteA, 'server-id', token: 'a'),
+      throwsA(isA<ApiFailure>()),
+    );
+    transport.status = 401;
+    await expectLater(
+      api.deleteServer(siteA, 'server-id', token: 'a'),
+      throwsA(
+        isA<ApiFailure>().having(
+          (e) => e.kind,
+          'kind',
+          FailureKind.authentication,
+        ),
+      ),
+    );
+  });
+
+  test('强制刷新以管理接口返回的服务器名单为准，补齐新增并排除已删除的缓存记录', () async {
+    transport.reply = (request) => request.path.endsWith('/admin/api')
+        ? {
+            'servers': [
+              {'id': 'existing', 'name': 'new-name'},
+              {'id': 'created', 'name': 'added', 'last_updated': 0},
+            ],
+          }
+        : {
+            'servers': [
+              {
+                'id': 'existing',
+                'name': 'old-name',
+                'ping': [
+                  {'ct': 58},
+                ],
+              },
+              {'id': 'deleted', 'name': 'stale'},
+            ],
+            'sysConfig': {'show_price': false},
+          };
+    final data = await api.dashboard(siteA, token: 'a', forceRefresh: true);
+    expect(transport.requests.first.data, {'action': 'list', 'refresh': true});
+    expect(transport.requests.first.headers['Authorization'], 'Bearer a');
+    expect(data.servers.map((s) => s.id), ['existing', 'created']);
+    expect(data.servers.first.name, 'new-name');
+    expect(data.servers.first.data['ping'], isNotEmpty);
+    expect(data.servers.last.isOnline(), isFalse);
+    expect(data.config['show_price'], isFalse);
+  });
+  test('安装参数从所属站点获取，保留密钥和 UA，缺少密钥不生成命令', () async {
+    final prefixed = siteA.copyWith(
+      baseUrl: 'https://a.example.com:8443/monitor',
+    );
+    transport.reply = (_) => {
+      'success': true,
+      'api_secret': 'test-secret',
+      'settings': {'ua': 'custom-agent', 'site_title': 'ignored'},
+    };
+    final parameters = await api.installParameters(prefixed, token: 'token-a');
+    expect(parameters.secret, 'test-secret');
+    expect(parameters.userAgent, 'custom-agent');
+    expect(
+      transport.requests.single.uri.toString(),
+      'https://a.example.com:8443/monitor/admin/api',
+    );
+    expect(transport.requests.single.data, {'action': 'get_settings'});
+    expect(
+      transport.requests.single.headers['Authorization'],
+      'Bearer token-a',
+    );
+    expect(transport.requests.single.followRedirects, isFalse);
+    transport.reply = (_) => {'is_public': true, 'authorization': false};
+    await api.config(siteB);
+    expect(
+      transport.requests.last.headers.containsKey('Authorization'),
+      isFalse,
+    );
+    transport.reply = (_) => {'success': true, 'settings': {}};
+    await expectLater(
+      api.installParameters(siteA, token: 'token-a'),
+      throwsA(isA<ApiFailure>()),
+    );
+    transport.status = 401;
+    await expectLater(
+      api.installParameters(siteA, token: 'token-a'),
+      throwsA(
+        isA<ApiFailure>().having(
+          (e) => e.kind,
+          'kind',
+          FailureKind.authentication,
+        ),
+      ),
+    );
+  });
+  test('新增服务器使用所属站点管理接口和独立凭据，严格校验创建结果', () async {
+    transport.reply = (_) => {
+      'success': true,
+      'id': 'new-id',
+      'message': 'serverAdded',
+    };
+    final prefixed = siteA.copyWith(
+      baseUrl: 'https://a.example.com:8443/monitor',
+    );
+    expect(
+      await api.addServer(
+        prefixed,
+        token: 'token-a',
+        name: ' 香港 ',
+        group: ' Asia ',
+      ),
+      'new-id',
+    );
+    final request = transport.requests.single;
+    expect(
+      request.uri.toString(),
+      'https://a.example.com:8443/monitor/admin/api',
+    );
+    expect(request.method, 'POST');
+    expect(request.headers['Authorization'], 'Bearer token-a');
+    expect(request.data, {
+      'action': 'add',
+      'name': '香港',
+      'server_group': 'Asia',
+    });
+    expect(request.followRedirects, isFalse);
+    transport.reply = (_) => {'is_public': true, 'authorization': false};
+    await api.config(siteB);
+    expect(
+      transport.requests.last.headers.containsKey('Authorization'),
+      isFalse,
+    );
+    transport.reply = (_) => {'success': false, 'error': 'serverAddFailed'};
+    await expectLater(
+      api.addServer(siteA, token: 'a', name: 'HK'),
+      throwsA(isA<ApiFailure>()),
+    );
+    transport.status = 401;
+    await expectLater(
+      api.addServer(siteA, token: 'a', name: 'HK'),
+      throwsA(
+        isA<ApiFailure>().having(
+          (e) => e.kind,
+          'kind',
+          FailureKind.authentication,
+        ),
+      ),
+    );
+  });
   test('反代路径、端口及查询保留，Bearer 凭据按请求隔离且禁止重定向', () async {
     final prefixed = siteA.copyWith(
       baseUrl: 'https://a.example.com:8443/monitor',

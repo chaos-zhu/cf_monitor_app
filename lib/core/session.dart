@@ -84,14 +84,18 @@ class MonitorSession extends ChangeNotifier {
     }
   }
 
-  Future<void> refresh() async {
+  Future<void> refresh({bool forceRefresh = false}) async {
     if (_disposed || _suspended) return;
     final request = ++_request, revision = _revision;
     refreshing = true;
     _notify();
     try {
       WorkerApi.ensureSupported(config);
-      final snapshot = await api.dashboard(site, token: token);
+      final snapshot = await api.dashboard(
+        site,
+        token: token,
+        forceRefresh: forceRefresh,
+      );
       if (_disposed || request != _request || _suspended) return;
       final old = {for (final s in servers) s.id: s};
       servers = snapshot.servers

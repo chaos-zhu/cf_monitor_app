@@ -8,8 +8,11 @@ import '../core/formatters.dart';
 import '../core/models.dart';
 import '../core/session.dart';
 import '../widgets/common.dart';
+import '../widgets/server_list_tile.dart';
 import 'connect_page.dart';
 import 'detail_page.dart';
+import 'add_server_page.dart';
+import 'installation_page.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({required this.connection, super.key});
@@ -24,6 +27,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
   String _region = '全部';
   bool _leaving = false;
   bool _ready = false;
+  bool _adding = false;
+  bool _savingLayout = false;
   @override
   void initState() {
     super.initState();
@@ -201,11 +206,190 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
     }
   }
 
+  Future<void> _toggleLayout() async {
+    if (_savingLayout) return;
+    final controller = ref.read(sitesProvider);
+    setState(() => _savingLayout = true);
+    try {
+      await controller.setCompactLayout(!controller.compactLayout);
+    } catch (_) {
+      if (mounted) showMessage(context, '保存布局失败，请重试');
+    } finally {
+      if (mounted) setState(() => _savingLayout = false);
+    }
+  }
+
+  Future<void> _serverMenu(Server server) async {
+    if (_adding || !_ready || session.loading) return;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text(
+                server.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline),
+              title: const Text('删除'),
+              onTap: () => Navigator.pop(context, 'delete'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.terminal),
+              title: const Text('安装命令'),
+              onTap: () => Navigator.pop(context, 'install'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || _leaving || action == null || _adding) return;
+    if (action == 'delete') {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('删除服务器？'),
+          content: Text('将从当前站点删除“${server.name}”及其监控数据。服务器上的 Agent 不会自动卸载。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              key: const Key('confirm-delete-server'),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('删除'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted || _leaving) return;
+    }
+    setState(() => _adding = true);
+    try {
+      if (!await _ensureAuthorized()) return;
+      if (!mounted || _leaving) return;
+      if (action == 'install') {
+        await Navigator.push<void>(
+          context,
+          CupertinoPageRoute(
+            builder: (_) => InstallationPage(
+              session: session,
+              serverId: server.id,
+              serverName: server.name,
+              onLogin: _login,
+            ),
+          ),
+        );
+        if (mounted && !_leaving) await session.refresh(forceRefresh: true);
+      } else {
+        final api = ref.read(apiProvider);
+        try {
+          await api.deleteServer(
+            session.site,
+            server.id,
+            token: session.token!,
+          );
+        } on ApiFailure catch (e) {
+          if (e.kind != FailureKind.authentication) rethrow;
+          await ref.read(sitesProvider).clearToken(session.site.id);
+          if (!mounted || _leaving || !await _login()) return;
+          if (!mounted || _leaving) return;
+          await api.deleteServer(
+            session.site,
+            server.id,
+            token: session.token!,
+          );
+        }
+        if (!mounted || _leaving) return;
+        _region = '全部';
+        await session.refresh(forceRefresh: true);
+        if (mounted && !_leaving) showMessage(context, '服务器已删除');
+      }
+    } catch (e) {
+      if (mounted && !_leaving) {
+        showMessage(context, MonitorSession.friendlyError(e));
+      }
+    } finally {
+      if (mounted) setState(() => _adding = false);
+    }
+  }
+
+  Future<bool> _ensureAuthorized() async {
+    var token = await ref.read(sitesProvider).token(session.site.id);
+    if (!mounted || _leaving) return false;
+    if (token != null) {
+      try {
+        final cfg = await ref
+            .read(apiProvider)
+            .config(session.site, token: token);
+        if (!mounted || _leaving) return false;
+        WorkerApi.ensureSupported(cfg);
+        session.config = cfg;
+        if (!cfg.authorized) token = null;
+      } on ApiFailure catch (e) {
+        if (e.kind != FailureKind.authentication) rethrow;
+        token = null;
+      }
+      if (!mounted || _leaving) return false;
+      if (token == null) {
+        await ref.read(sitesProvider).clearToken(session.site.id);
+      }
+    }
+    if (!mounted || _leaving) return false;
+    session.token = token;
+    if (token == null && !await _login()) return false;
+    if (!mounted || _leaving) return false;
+    return mounted && !_leaving;
+  }
+
+  Future<void> _addServer() async {
+    if (_adding || !_ready || session.loading) return;
+    setState(() => _adding = true);
+    var created = false;
+    try {
+      if (!await _ensureAuthorized()) return;
+      if (!mounted || _leaving) return;
+      await Navigator.push<void>(
+        context,
+        CupertinoPageRoute(
+          builder: (_) => AddServerPage(
+            session: session,
+            onLogin: _login,
+            onCreated: () {
+              created = true;
+              _region = '全部';
+              unawaited(session.refresh(forceRefresh: true));
+            },
+          ),
+        ),
+      );
+      if (created && mounted && !_leaving) {
+        await session.refresh(forceRefresh: true);
+      }
+    } catch (e) {
+      if (mounted && !_leaving) {
+        showMessage(context, MonitorSession.friendlyError(e));
+      }
+    } finally {
+      if (mounted) setState(() => _adding = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: session,
     builder: (context, _) {
       final p = Palette.of(context);
+      final compact = ref.watch(
+        sitesProvider.select((controller) => controller.compactLayout),
+      );
       final servers = session.servers;
       final regions = <String, int>{};
       for (final server in servers) {
@@ -247,40 +431,97 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                             Row(
                               children: [
                                 Expanded(
-                                  child: Text(
-                                    session.site.name,
-                                    style: const TextStyle(
-                                      fontSize: 25,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              session.site.name,
+                                              key: const Key(
+                                                'dashboard-site-name',
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.w600,
+                                                height: 1.2,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Tooltip(
+                                            message: session.connectionLabel,
+                                            child: Semantics(
+                                              label: session.connectionLabel,
+                                              child: Container(
+                                                key: const Key(
+                                                  'connection-dot',
+                                                ),
+                                                width: 6,
+                                                height: 6,
+                                                decoration: BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  color: session.realtime
+                                                      ? p.green
+                                                      : session.needsLogin ||
+                                                            session.unsupported
+                                                      ? p.red
+                                                      : p.amber,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Tooltip(
+                                        message: session.site.baseUrl,
+                                        child: Text(
+                                          session.site.host,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: mono(
+                                            context,
+                                            size: 11,
+                                            color: p.muted,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(width: 7),
-                                Expanded(
-                                  child: Align(
-                                    alignment: Alignment.centerRight,
-                                    child: StatusPill(
-                                      session.connectionLabel,
-                                      color: session.realtime
-                                          ? p.green
-                                          : p.amber,
-                                      dot: true,
-                                    ),
+                                const SizedBox(width: 12),
+                                IconButton(
+                                  key: const Key('add-server'),
+                                  tooltip: '新增服务器',
+                                  onPressed:
+                                      _ready && !session.loading && !_adding
+                                      ? _addServer
+                                      : null,
+                                  icon: const Icon(Icons.add, size: 23),
+                                  color: p.green,
+                                ),
+                                IconButton(
+                                  key: const Key('toggle-server-layout'),
+                                  tooltip: compact ? '切换卡片布局' : '切换列表布局',
+                                  onPressed: _savingLayout
+                                      ? null
+                                      : _toggleLayout,
+                                  icon: Icon(
+                                    compact
+                                        ? Icons.view_agenda_outlined
+                                        : Icons.view_list_outlined,
+                                    size: 22,
                                   ),
+                                  color: p.green,
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            Tooltip(
-                              message: session.site.host,
-                              child: Text(
-                                session.site.host,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: mono(context, size: 12, color: p.muted),
-                              ),
-                            ),
-                            const SizedBox(height: 18),
+                            const SizedBox(height: 10),
                             if (!session.loading) _summary(context),
                             const SizedBox(height: 13),
                             if (session.error != null)
@@ -390,6 +631,21 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                           itemCount: entry.value.length,
                           itemBuilder: (context, index) {
                             final server = entry.value[index];
+                            if (compact) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: ServerListTile(
+                                  key: ValueKey(
+                                    '${session.site.id}:${server.id}',
+                                  ),
+                                  server: server,
+                                  config: session.config,
+                                  now: session.now(),
+                                  onTap: () => _detail(server),
+                                  onLongPress: () => _serverMenu(server),
+                                ),
+                              );
+                            }
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 13),
                               child: ServerCard(
@@ -400,6 +656,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
                                 config: session.config,
                                 now: session.now(),
                                 onTap: () => _detail(server),
+                                onLongPress: () => _serverMenu(server),
                               ),
                             );
                           },

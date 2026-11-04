@@ -168,7 +168,7 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
               TextFormField(
                 key: const Key('site-name'),
                 controller: _name,
-                enabled: !_busy,
+                enabled: !_busy && !widget.requireLogin,
                 textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(hintText: '例如：主监控站'),
                 validator: (v) => (v ?? '').trim().isEmpty ? '请输入站点名称' : null,
@@ -178,7 +178,7 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
               TextFormField(
                 key: const Key('site-url'),
                 controller: _url,
-                enabled: !_busy,
+                enabled: !_busy && !widget.requireLogin,
                 keyboardType: TextInputType.url,
                 autocorrect: false,
                 decoration: const InputDecoration(

@@ -5,6 +5,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'support.dart';
 
 void main() {
+  test('服务器布局默认卡片，设备持久化列表选择且可切回', () async {
+    SharedPreferences.setMockInitialValues({});
+    final controller = SiteController(DeviceSiteStorage());
+    addTearDown(controller.dispose);
+    await controller.load();
+    expect(controller.compactLayout, isFalse);
+    await controller.setCompactLayout(true);
+    final reloaded = SiteController(DeviceSiteStorage());
+    addTearDown(reloaded.dispose);
+    await reloaded.load();
+    expect(reloaded.compactLayout, isTrue);
+    await reloaded.setCompactLayout(false);
+    expect(await DeviceSiteStorage().readCompactLayout(), isFalse);
+  });
+
   test('多个站点持久化、凭据隔离及并发保存不丢失', () async {
     final storage = MemoryStorage();
     final controller = SiteController(storage);
