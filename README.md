@@ -28,7 +28,7 @@
 ## 下载与更新
 
 - **Android**：[GitHub Releases](https://github.com/chaos-zhu/cf_monitor_app/releases/latest)
-- **iOS**：https://apps.apple.com/app/cfmonitor/id6830518489CF-Server-Monitor
+- **iOS**：https://apps.apple.com/app/cfmonitor/id6830518489CF-Server-Monitor 【非大陆apple store可用】
 
 ## 上游项目
 
