@@ -27,9 +27,8 @@
 
 ## 下载与更新
 
-- **Android**：从 [GitHub Releases](https://github.com/chaos-zhu/cf_monitor_app/releases/latest) 下载适合设备架构的 APK；设置页可检查正式版本并前往下载。
-- **iOS**：通过 App Store 安装与更新。设置页根据应用 Bundle ID 和设备地区查询版本，上架后自动获取商店链接；审核期间会提示当前地区暂未上架。
-- 设置页显示当前安装包的版本与构建号，并提供作者的 [EasyNode](https://github.com/chaos-zhu/easynode) 项目入口。
+- **Android**：[GitHub Releases](https://github.com/chaos-zhu/cf_monitor_app/releases/latest)
+- **iOS**：https://apps.apple.com/app/cfmonitor/id6830518489CF-Server-Monitor
 
 ## 上游项目
 
