@@ -14,6 +14,7 @@ import 'connect_page.dart';
 import 'detail_page.dart';
 import 'add_server_page.dart';
 import 'installation_page.dart';
+import 'edit_server_page.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({required this.connection, super.key});
@@ -235,6 +236,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: Text(context.tr('编辑')),
+              onTap: () => Navigator.pop(context, 'edit'),
+            ),
+            ListTile(
               leading: const Icon(Icons.delete_outline),
               title: Text(context.tr('删除')),
               onTap: () => Navigator.pop(context, 'delete'),
@@ -279,9 +285,24 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
       _deleting = action == 'delete';
     });
     try {
-      if (!await _ensureAuthorized()) return;
+      if (action != 'edit' && !await _ensureAuthorized()) return;
       if (!mounted || _leaving) return;
-      if (action == 'install') {
+      if (action == 'edit') {
+        final saved = await Navigator.push<bool>(
+          context,
+          CupertinoPageRoute(
+            builder: (_) => EditServerPage(
+              session: session,
+              serverId: server.id,
+              onLogin: _login,
+            ),
+          ),
+        );
+        if (saved == true && mounted && !_leaving) {
+          await session.refresh(forceRefresh: true);
+          if (mounted && !_leaving) showMessage(context, context.tr('服务器已保存'));
+        }
+      } else if (action == 'install') {
         await Navigator.push<void>(
           context,
           CupertinoPageRoute(

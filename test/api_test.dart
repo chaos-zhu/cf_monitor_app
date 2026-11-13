@@ -155,6 +155,51 @@ void main() {
       ),
     );
   });
+  test('编辑读取最新管理配置并使用所属站点凭据保存完整字段', () async {
+    transport.reply = (request) => switch (request.data['action']) {
+      'list' => {
+        'servers': [
+          {'id': 'server-id', 'name': 'Original', 'traffic_limit': '500'},
+        ],
+      },
+      'get_settings' => {
+        'settings': {
+          'wss_report_enabled': 'true',
+          'custom_ct': 'example.com:443',
+          'node_1': 'node.example.com',
+          'api_secret': 'must-not-return',
+        },
+      },
+      _ => {'success': true},
+    };
+    final server = await api.serverForEdit(
+      siteB,
+      'server-id',
+      token: 'token-b',
+    );
+    expect(server.data['traffic_limit'], '500');
+    expect(transport.requests.last.data, {'action': 'list', 'refresh': true});
+    final settings = await api.editorSettings(siteB, token: 'token-b');
+    expect(settings['custom_ct'], 'example.com:443');
+    expect(settings['node_1'], 'node.example.com');
+    expect(settings.containsKey('api_secret'), isFalse);
+    await api.editServer(siteB, 'server-id', {
+      'name': 'New',
+      'traffic_limit': '500',
+    }, token: 'token-b');
+    expect(transport.requests.last.headers['Authorization'], 'Bearer token-b');
+    expect(transport.requests.last.data, {
+      'action': 'edit',
+      'id': 'server-id',
+      'name': 'New',
+      'traffic_limit': '500',
+    });
+    transport.reply = (_) => {'success': false};
+    await expectLater(
+      api.editServer(siteB, 'server-id', {}, token: 'token-b'),
+      throwsA(isA<ApiFailure>()),
+    );
+  });
 
   test('强制刷新以管理接口返回的服务器名单为准，补齐新增并排除已删除的缓存记录', () async {
     transport.reply = (request) => request.path.endsWith('/admin/api')

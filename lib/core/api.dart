@@ -75,6 +75,21 @@ abstract class MonitorApi {
     required String name,
     String group = '',
   });
+  Future<Server> serverForEdit(
+    MonitorSite site,
+    String id, {
+    required String token,
+  });
+  Future<Map<String, dynamic>> editorSettings(
+    MonitorSite site, {
+    required String token,
+  });
+  Future<void> editServer(
+    MonitorSite site,
+    String id,
+    Map<String, dynamic> fields, {
+    required String token,
+  });
   Future<void> deleteServer(
     MonitorSite site,
     String id, {
@@ -155,6 +170,9 @@ class WorkerApi extends MonitorApi {
         final code = '${json['message'] ?? json['error'] ?? ''}';
         final message = switch (status) {
           400 when code == 'invalidServerName' => '服务器名称不符合站点要求，请修改后重试',
+          400 when code == 'invalidPingNodeFormat' => '探测节点格式无效，请检查主机及端口',
+          400 when code == 'invalidNetworkInterface' => '网络接口格式无效，请检查后重试',
+          400 when code == 'invalidTrafficCorrection' => '流量修正值无效，请检查后重试',
           401 => '登录已失效或当前数据需要登录，请重新登录',
           403 => '请求被站点验证或防护拦截，当前版本不支持人机验证',
           404 => '未找到站点接口或服务器，服务器可能已被删除',
@@ -342,6 +360,97 @@ class WorkerApi extends MonitorApi {
       throw const ApiFailure('新增服务器未成功，请刷新列表确认后重试', kind: FailureKind.protocol);
     }
     return id;
+  }
+
+  @override
+  Future<Server> serverForEdit(
+    MonitorSite site,
+    String id, {
+    required String token,
+  }) async {
+    final result = jsonMap(
+      await _request(
+        site,
+        '/admin/api',
+        token: token,
+        body: {'action': 'list', 'refresh': true},
+      ),
+    );
+    final servers = result['servers'];
+    if (servers is! List) {
+      throw const ApiFailure('无法读取服务器配置', kind: FailureKind.protocol);
+    }
+    for (final item in servers) {
+      final data = jsonMap(item);
+      if (data['id'] == id) return Server(data);
+    }
+    throw const ApiFailure('未找到服务器，可能已被删除', status: 404);
+  }
+
+  @override
+  Future<Map<String, dynamic>> editorSettings(
+    MonitorSite site, {
+    required String token,
+  }) async {
+    final result = jsonMap(
+      await _request(
+        site,
+        '/admin/api',
+        token: token,
+        body: {'action': 'get_settings'},
+      ),
+    );
+    if (result['settings'] is! Map) {
+      throw const ApiFailure('无法读取站点设置', kind: FailureKind.protocol);
+    }
+    final settings = jsonMap(result['settings']);
+    return {
+      for (final key in [
+        'wss_report_enabled',
+        'tg_bot_token',
+        'tg_notify',
+        'custom_ct',
+        'custom_cu',
+        'custom_cm',
+        'custom_bd',
+        'node_1',
+        'node_2',
+        'node_3',
+        'node_4',
+        'custom_ct_name',
+        'custom_cu_name',
+        'custom_cm_name',
+        'custom_bd_name',
+        'node_1_name',
+        'node_2_name',
+        'node_3_name',
+        'node_4_name',
+      ])
+        key: settings[key],
+    };
+  }
+
+  @override
+  Future<void> editServer(
+    MonitorSite site,
+    String id,
+    Map<String, dynamic> fields, {
+    required String token,
+  }) async {
+    if (token.isEmpty) {
+      throw const ApiFailure('请先登录此站点', kind: FailureKind.authentication);
+    }
+    final result = jsonMap(
+      await _request(
+        site,
+        '/admin/api',
+        token: token,
+        body: {...fields, 'action': 'edit', 'id': id},
+      ),
+    );
+    if (result['success'] != true) {
+      throw const ApiFailure('保存服务器失败，请重试', kind: FailureKind.protocol);
+    }
   }
 
   @override

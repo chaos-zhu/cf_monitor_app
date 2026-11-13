@@ -283,6 +283,178 @@ void main() {
     expect(api.addedServers, isEmpty);
     await finish(tester);
   });
+  testWidgets('编辑页立即显示并在读取服务器详情时展示加载状态', (tester) async {
+    final detail = Completer<Server>();
+    final api = FakeApi()..serverForEditHandler = () => detail.future;
+    final storage = MemoryStorage([siteA])..tokens['a'] = jwt();
+    await launch(tester, api, storage);
+    await click(tester, find.text('进入站点'));
+    await tester.longPress(find.byType(ServerCard));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('编辑'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('编辑服务器'), findsOneWidget);
+    expect(find.text('正在加载服务器配置'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    detail.complete(exampleServer(id: 'same-id'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('edit-name')), findsOneWidget);
+    await finish(tester);
+  });
+
+  testWidgets('编辑表单展示站点默认节点提示且保存时不覆盖继承值', (tester) async {
+    final api = FakeApi()
+      ..editableServer = Server({'id': 'same-id', 'name': 'Original'})
+      ..editSettings = {
+        'wss_report_enabled': true,
+        'custom_ct': 'site.example.com:443',
+        'custom_cu': '',
+        'node_1': 'node.example.com',
+      };
+    await launch(tester, api, MemoryStorage([siteA])..tokens['a'] = jwt());
+    await click(tester, find.text('进入站点'));
+    await tester.longPress(find.byType(ServerCard));
+    await tester.pumpAndSettle();
+    await click(tester, find.text('编辑'));
+    final scrollable = find
+        .descendant(
+          of: find.byKey(const Key('server-edit-form')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('edit-custom_ct')),
+      400,
+      scrollable: scrollable,
+    );
+    TextFormField field(String key) =>
+        tester.widget<TextFormField>(find.byKey(Key('edit-$key')));
+    String? hint(String key) => tester
+        .widget<TextField>(
+          find.descendant(
+            of: find.byKey(Key('edit-$key')),
+            matching: find.byType(TextField),
+          ),
+        )
+        .decoration!
+        .hintText;
+    expect(hint('custom_ct'), 'site.example.com:443');
+    expect(field('custom_ct').controller!.text, isEmpty);
+    expect(hint('custom_cu'), 'gd-cu-dualstack.ip.zstaticcdn.com');
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('edit-node_1')),
+      300,
+      scrollable: scrollable,
+    );
+    expect(hint('node_1'), 'node.example.com');
+    await click(tester, find.byKey(const Key('save-server-edit')));
+    expect(api.edits.single['custom_ct'], isEmpty);
+    expect(api.edits.single['node_1'], isEmpty);
+    await finish(tester);
+  });
+
+  testWidgets('长按编辑读取完整配置，保存后刷新且保留未修改字段', (tester) async {
+    final api = FakeApi()
+      ..editableServer = Server({
+        'id': 'same-id',
+        'name': 'Original',
+        'server_group': 'Asia',
+        'region': 'US',
+        'region_override': 'CN',
+        'traffic_limit': '500',
+        'traffic_alert_percent': 75,
+        'custom_ct': 'example.com:443',
+        'auto_update': '1',
+        'is_hidden': '1',
+        'reset_day': 12,
+      });
+    final storage = MemoryStorage([siteA])..tokens['a'] = jwt();
+    await launch(tester, api, storage);
+    await click(tester, find.text('进入站点'));
+    await tester.longPress(find.byType(ServerCard));
+    await tester.pumpAndSettle();
+    await click(tester, find.text('编辑'));
+    expect(find.byKey(const Key('edit-name')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('edit-name')), 'Updated');
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('edit-billing_cycle')),
+      350,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('server-edit-form')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await click(tester, find.byKey(const Key('edit-billing_cycle')));
+    await click(tester, find.text('年').last);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('save-server-edit')),
+      500,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('server-edit-form')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await click(tester, find.byKey(const Key('save-server-edit')));
+    expect(api.edits, hasLength(1));
+    expect(api.edits.single['name'], 'Updated');
+    expect(api.edits.single['billing_cycle'], 'year');
+    expect(api.edits.single['region'], 'CN');
+    expect(api.edits.single['traffic_limit'], '500');
+    expect(api.edits.single['traffic_alert_percent'], 75);
+    expect(api.edits.single['custom_ct'], 'example.com:443');
+    expect(api.edits.single['auto_update'], '1');
+    expect(api.edits.single['is_hidden'], '1');
+    expect(api.edits.single['reset_day'], 12);
+    expect(api.edits.single['site'], 'a');
+    expect(api.forcedRefreshes.last, isTrue);
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+  testWidgets('编辑保存时登录失效保留草稿，重新登录后提交', (tester) async {
+    final api = FakeApi();
+    var attempts = 0;
+    api.editServerHandler = () async {
+      attempts++;
+      if (attempts == 1) {
+        throw const ApiFailure(
+          '登录失效',
+          status: 401,
+          kind: FailureKind.authentication,
+        );
+      }
+    };
+    final storage = MemoryStorage([siteA])..tokens['a'] = jwt();
+    await launch(tester, api, storage, size: const Size(320, 900), scale: 1.3);
+    await click(tester, find.text('进入站点'));
+    await tester.longPress(find.byType(ServerCard));
+    await tester.pumpAndSettle();
+    await click(tester, find.text('编辑'));
+    await tester.enterText(find.byKey(const Key('edit-name')), 'Updated');
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('save-server-edit')),
+      500,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('server-edit-form')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await click(tester, find.byKey(const Key('save-server-edit')));
+    expect(find.text('重新登录并保存'), findsOneWidget);
+    await click(tester, find.byKey(const Key('save-server-edit')));
+    await tester.enterText(find.byKey(const Key('password')), 'password');
+    await click(tester, find.byKey(const Key('connect-site')));
+    expect(api.edits.single['name'], 'Updated');
+    expect(attempts, 2);
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
 
   testWidgets('GitHub 代理可下拉选择或输入，非法输入禁用命令，Docker 不使用代理', (tester) async {
     final api = FakeApi();

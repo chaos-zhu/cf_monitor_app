@@ -183,6 +183,35 @@ class FakeSocket implements LiveConnection {
 }
 
 class FakeApi extends MonitorApi {
+  Server? editableServer;
+  Future<Server> Function()? serverForEditHandler;
+  Map<String, dynamic> editSettings = {'wss_report_enabled': true};
+  @override
+  Future<Map<String, dynamic>> editorSettings(
+    MonitorSite site, {
+    required String token,
+  }) async => editSettings;
+  final edits = <Map<String, dynamic>>[];
+  Future<void> Function()? editServerHandler;
+  @override
+  Future<Server> serverForEdit(
+    MonitorSite site,
+    String id, {
+    required String token,
+  }) async => serverForEditHandler != null
+      ? await serverForEditHandler!()
+      : editableServer ?? exampleServer(id: id);
+  @override
+  Future<void> editServer(
+    MonitorSite site,
+    String id,
+    Map<String, dynamic> fields, {
+    required String token,
+  }) async {
+    if (editServerHandler != null) await editServerHandler!();
+    edits.add({'site': site.id, 'id': id, 'token': token, ...fields});
+  }
+
   final passwordChecks = <String?>[];
   @override
   Future<void> validateAppPassword(MonitorSite site) async {
