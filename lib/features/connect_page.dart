@@ -127,7 +127,11 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
           setState(() => _login = true);
           return;
         }
-        WorkerApi.ensureSupported(cfg, login: true);
+        WorkerApi.ensureSupported(
+          cfg,
+          login: true,
+          hasAppPassword: site.appPassword != null,
+        );
         if (_username.text.trim().isEmpty || _password.text.isEmpty) {
           setState(() => _error = context.tr('请输入用户名和密码'));
           return;
@@ -197,7 +201,7 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
     final cfg = _config;
     final showTurnstileNotice =
         (cfg?.globalChallenge == true && _appPassword.text.isEmpty) ||
-        (_login && cfg?.loginChallenge == true);
+        (_login && cfg?.loginChallenge == true && _appPassword.text.isEmpty);
     final isTurnstileError =
         _error == '该站点启用了全局人机验证，当前版本暂不支持连接' ||
         _error == '该站点启用了登录验证，当前版本暂不支持登录';
@@ -301,7 +305,7 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    context.tr('只读访问可绕过全局验证，以只读方式访问'),
+                    context.tr('可绕过全局及登录验证，登录仍需管理员账号密码。'),
                     style: TextStyle(fontSize: 12, color: p.muted),
                   ),
                   const SizedBox(height: 22),
@@ -407,7 +411,7 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
                   Padding(
                     padding: EdgeInsets.only(top: 12),
                     child: Notice(
-                      context.tr('当前版本不支持 Turnstile 人机验证。公开站点若仅开启登录验证，仍可匿名查看。'),
+                      context.tr('App端不支持Turnstile人机验证，请输入 App 访问口令后重试'),
                       error: true,
                     ),
                   ),

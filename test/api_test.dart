@@ -9,6 +9,7 @@ import 'support.dart';
 class StubAdapter implements HttpClientAdapter {
   final requests = <RequestOptions>[];
   int status = 200;
+  int Function(RequestOptions)? statusFor;
   Object? Function(RequestOptions) reply = (_) => {
     'is_public': true,
     'authorization': false,
@@ -22,7 +23,7 @@ class StubAdapter implements HttpClientAdapter {
     requests.add(options);
     return ResponseBody.fromString(
       jsonEncode(reply(options)),
-      status,
+      statusFor?.call(options) ?? status,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
       },
@@ -83,12 +84,41 @@ void main() {
       publicConfig({'turnstile_enabled': true}),
       hasAppPassword: true,
     );
+    WorkerApi.ensureSupported(
+      publicConfig({'turnstile_enabled': true}),
+      login: true,
+      hasAppPassword: true,
+    );
+  });
+  test('登录验证站点携带 App 口令提交登录，服务端拒绝时提示检查版本', () async {
+    final site = siteA.copyWith(appPassword: '1234567890abcdef');
+    transport.reply = (request) => request.uri.path == '/api/config'
+        ? {
+            'is_public': true,
+            'authorization': false,
+            'turnstile_login_enabled': true,
+          }
+        : {'token': 'admin-token'};
+    expect(await api.login(site, 'admin', 'password'), 'admin-token');
     expect(
-      () => WorkerApi.ensureSupported(
-        publicConfig({'turnstile_enabled': true}),
-        login: true,
-        hasAppPassword: true,
+      transport.requests.last.headers['X-App-Password'],
+      '1234567890abcdef',
+    );
+    expect(transport.requests.last.data['password'], 'password');
+    transport.statusFor = (request) =>
+        request.uri.path == '/admin/api' ? 403 : 200;
+    await expectLater(
+      api.login(site, 'admin', 'password'),
+      throwsA(
+        isA<ApiFailure>().having(
+          (e) => e.message,
+          'message',
+          contains('服务端版本'),
+        ),
       ),
+    );
+    await expectLater(
+      api.login(siteA, 'admin', 'password'),
       throwsA(isA<ApiFailure>()),
     );
   });

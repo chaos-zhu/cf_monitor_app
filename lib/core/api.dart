@@ -228,14 +228,26 @@ class WorkerApi extends MonitorApi {
     String password,
   ) async {
     final cfg = await config(site);
-    ensureSupported(cfg, login: true);
-    final result = jsonMap(
-      await _request(
-        site,
-        '/admin/api',
-        body: {'action': 'login', 'username': username, 'password': password},
-      ),
-    );
+    ensureSupported(cfg, login: true, hasAppPassword: site.appPassword != null);
+    final Map<String, dynamic> result;
+    try {
+      result = jsonMap(
+        await _request(
+          site,
+          '/admin/api',
+          body: {'action': 'login', 'username': username, 'password': password},
+        ),
+      );
+    } on ApiFailure catch (e) {
+      if (e.status == 403 && cfg.loginChallenge && site.appPassword != null) {
+        throw const ApiFailure(
+          '登录验证失败：请检查 App 访问口令、站点防护及服务端版本',
+          status: 403,
+          kind: FailureKind.unsupported,
+        );
+      }
+      rethrow;
+    }
     final token = result['token'];
     if (token is! String || token.isEmpty) {
       throw const ApiFailure('站点未返回登录凭证', kind: FailureKind.protocol);
@@ -254,7 +266,7 @@ class WorkerApi extends MonitorApi {
         kind: FailureKind.unsupported,
       );
     }
-    if (login && cfg.loginChallenge) {
+    if (login && cfg.loginChallenge && !hasAppPassword) {
       throw const ApiFailure(
         '该站点启用了登录验证，当前版本暂不支持登录',
         kind: FailureKind.unsupported,

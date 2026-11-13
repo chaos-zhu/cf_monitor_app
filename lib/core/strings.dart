@@ -153,8 +153,10 @@ class AppStrings {
         'User-Agent must contain printable ASCII characters only',
     'App 访问口令（可选）': 'App access password (optional)',
     '输入站点的 App 访问口令': 'Enter the site app access password',
-    '只读访问可绕过全局验证，以只读方式访问':
-        'Read-only access bypasses global verification.',
+    '可绕过全局及登录验证，登录仍需管理员账号密码。':
+        'Bypasses global and sign-in verification; administrator credentials are still required.',
+    '登录验证失败：请检查 App 访问口令、站点防护及服务端版本':
+        'Sign-in verification failed. Check the app password, site protection, and server version.',
     '暂不登录？返回只读连接': 'Not signing in? Return to read-only access',
     'App 访问口令须为 16-32 位可见 ASCII 字符': 'Use 16-32 visible ASCII characters',
     'App 访问口令无效或请求被站点防护拦截':
@@ -171,8 +173,8 @@ class AppStrings {
     '已识别 CF Server Monitor · {0}': 'CF Server Monitor detected · {0}',
     '已识别 CF Server Monitor': 'CF Server Monitor detected',
     '当前服务器没有启用的线路探测数据。': 'No enabled network probes for this server.',
-    '当前版本不支持 Turnstile 人机验证。公开站点若仅开启登录验证，仍可匿名查看。':
-        'Turnstile verification is not supported. Public sites with sign-in verification only can still be viewed anonymously.',
+    'App端不支持Turnstile人机验证，请输入 App 访问口令后重试':
+        'The app does not support Turnstile verification. Enter the app access password and try again.',
     '待连接': 'Not connected',
     '总流量': 'Total traffic',
     '总磁盘 / 内存': 'Total disk / memory',

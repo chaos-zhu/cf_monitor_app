@@ -96,8 +96,8 @@ void main() {
     expect(en.text('12 天 3 小时'), '12d 3h');
     expect(en.text('2 天后到期'), 'Expires in 2 days');
     expect(
-      en.text('只读访问可绕过全局验证，以只读方式访问'),
-      'Read-only access bypasses global verification.',
+      en.text('可绕过全局及登录验证，登录仍需管理员账号密码。'),
+      'Bypasses global and sign-in verification; administrator credentials are still required.',
     );
     expect(
       en.text('暂不登录？返回只读连接'),
