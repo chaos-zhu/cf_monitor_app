@@ -921,6 +921,11 @@ void main() {
     final storage = MemoryStorage();
     await launch(tester, api, storage);
     await click(tester, find.text('添加第一个站点'));
+    expect(
+      find.descendant(of: find.byType(AppBar), matching: find.text('连接新站点')),
+      findsOneWidget,
+    );
+    expect(find.text('添加你的 CF Server Monitor'), findsNothing);
     await tester.enterText(find.byKey(const Key('site-name')), 'Protected');
     await tester.enterText(
       find.byKey(const Key('site-url')),
@@ -943,6 +948,48 @@ void main() {
     expect(find.byType(ServerCard), findsOneWidget);
     expect(api.sockets.length, 2);
     expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+  testWidgets('App 口令和管理员登录分开展示，登录验证只提示一次且可返回只读连接', (tester) async {
+    final api = FakeApi()
+      ..settings = publicConfig({'turnstile_login_enabled': true});
+    final storage = MemoryStorage();
+    await launch(tester, api, storage);
+    await click(tester, find.text('添加第一个站点'));
+    await tester.enterText(find.byKey(const Key('site-name')), 'Protected');
+    await tester.enterText(
+      find.byKey(const Key('site-url')),
+      'https://a.example.com',
+    );
+    await tester.enterText(
+      find.byKey(const Key('app-password')),
+      '1234567890abcdef',
+    );
+    await click(tester, find.text('需要登录？输入账号密码'));
+    expect(find.text('使用该站点现有的管理员账号'), findsNothing);
+    await tester.ensureVisible(find.text('暂不登录？返回只读连接'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.text('暂不登录？返回只读连接')).dy,
+      greaterThan(tester.getBottomLeft(find.byKey(const Key('password'))).dy),
+    );
+    expect(
+      tester.getBottomLeft(find.text('暂不登录？返回只读连接')).dy,
+      lessThan(tester.getTopLeft(find.byKey(const Key('connect-site'))).dy),
+    );
+    await click(tester, find.byKey(const Key('connect-site')));
+    expect(find.text('已识别 CF Server Monitor'), findsOneWidget);
+    expect(find.textContaining('公开站点 ·'), findsNothing);
+    expect(find.text('该站点启用了登录验证，当前版本暂不支持登录'), findsNothing);
+    final notice = tester.widget<Notice>(find.byType(Notice));
+    expect(notice.error, isTrue);
+    expect(notice.message, '当前版本不支持 Turnstile 人机验证。公开站点若仅开启登录验证，仍可匿名查看。');
+    expect(api.loginCalls, 0);
+    await click(tester, find.text('暂不登录？返回只读连接'));
+    expect(find.byKey(const Key('username')), findsNothing);
+    await click(tester, find.byKey(const Key('connect-site')));
+    expect(api.passwordChecks, isNotEmpty);
+    expect(storage.sites, hasLength(1));
     await finish(tester);
   });
   testWidgets('320 宽深色大字体：站点、登录、条形列表无布局溢出', (tester) async {

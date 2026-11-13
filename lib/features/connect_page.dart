@@ -50,7 +50,7 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
         widget.site?.id ??
         '${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 30)}';
     _config = widget.config;
-    _login = widget.requireLogin || (_config != null && !_config!.isPublic);
+    _login = widget.requireLogin;
     _credentialsLoaded = widget.site == null
         ? Future.value()
         : _loadCredentials();
@@ -195,8 +195,18 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
   Widget build(BuildContext context) {
     final p = Palette.of(context);
     final cfg = _config;
+    final showTurnstileNotice =
+        (cfg?.globalChallenge == true && _appPassword.text.isEmpty) ||
+        (_login && cfg?.loginChallenge == true);
+    final isTurnstileError =
+        _error == '该站点启用了全局人机验证，当前版本暂不支持连接' ||
+        _error == '该站点启用了登录验证，当前版本暂不支持登录';
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        title: Text(
+          widget.requireLogin ? context.tr('重新连接站点') : context.tr('连接新站点'),
+        ),
+      ),
       body: PageBody(
         child: Form(
           key: _form,
@@ -205,21 +215,6 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  widget.requireLogin
-                      ? context.tr('重新连接站点')
-                      : context.tr('连接新站点'),
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  context.tr('添加你的 CF Server Monitor'),
-                  style: TextStyle(fontSize: 13, color: p.muted),
-                ),
-                const SizedBox(height: 27),
                 _label(context.tr('站点名称')),
                 TextFormField(
                   key: const Key('site-name'),
@@ -262,11 +257,7 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          context.tr('已识别 CF Server Monitor · {0}', [
-                            cfg.isPublic
-                                ? context.tr('公开站点')
-                                : context.tr('私有站点'),
-                          ]),
+                          context.tr('已识别 CF Server Monitor'),
                           style: TextStyle(fontSize: 12, color: p.green),
                         ),
                       ),
@@ -279,6 +270,7 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
                   TextFormField(
                     key: const Key('app-password'),
                     controller: _appPassword,
+                    onChanged: (_) => setState(() {}),
                     enabled: !_busy,
                     obscureText: _appPasswordHidden,
                     autocorrect: false,
@@ -306,6 +298,11 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
                             !RegExp(r'^[\x21-\x7e]{16,32}$').hasMatch(value)
                         ? context.tr('App 访问口令须为 16-32 位可见 ASCII 字符')
                         : null,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    context.tr('只读访问可绕过全局验证，以只读方式访问'),
+                    style: TextStyle(fontSize: 12, color: p.muted),
                   ),
                   const SizedBox(height: 22),
                   _label(context.tr('自定义 User-Agent（可选）')),
@@ -345,11 +342,6 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
                               ),
                             ),
                           ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          context.tr('使用该站点现有的管理员账号'),
-                          style: TextStyle(fontSize: 12, color: p.muted),
                         ),
                         const SizedBox(height: 20),
                         _label(context.tr('用户名')),
@@ -406,17 +398,30 @@ class _ConnectPageState extends ConsumerState<ConnectPage> {
                     ),
                   ),
                 ],
-                if (_error != null) ...[
+                if (_error != null &&
+                    !(showTurnstileNotice && isTurnstileError)) ...[
                   const SizedBox(height: 18),
                   Notice(_error!, error: true),
                 ],
-                if ((cfg?.globalChallenge == true &&
-                        _appPassword.text.isEmpty) ||
-                    (_login && cfg?.loginChallenge == true))
+                if (showTurnstileNotice)
                   Padding(
                     padding: EdgeInsets.only(top: 12),
                     child: Notice(
                       context.tr('当前版本不支持 Turnstile 人机验证。公开站点若仅开启登录验证，仍可匿名查看。'),
+                      error: true,
+                    ),
+                  ),
+                if (_login && !widget.requireLogin)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton(
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() {
+                              _login = false;
+                              _error = null;
+                            }),
+                      child: Text(context.tr('暂不登录？返回只读连接')),
                     ),
                   ),
                 const SizedBox(height: 24),
