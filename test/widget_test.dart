@@ -912,6 +912,39 @@ void main() {
     expect(api.loginCalls, 0);
     await finish(tester);
   });
+  testWidgets('App 口令连接私有验证站点并在重新进入时恢复', (tester) async {
+    final api = FakeApi()
+      ..settings = publicConfig({
+        'turnstile_enabled': true,
+        'is_public': false,
+      });
+    final storage = MemoryStorage();
+    await launch(tester, api, storage);
+    await click(tester, find.text('添加第一个站点'));
+    await tester.enterText(find.byKey(const Key('site-name')), 'Protected');
+    await tester.enterText(
+      find.byKey(const Key('site-url')),
+      'https://a.example.com',
+    );
+    await tester.enterText(
+      find.byKey(const Key('app-password')),
+      '1234567890abcdef',
+    );
+    await tester.enterText(find.byKey(const Key('user-agent')), 'my-monitor/1');
+    await click(tester, find.byKey(const Key('connect-site')));
+    expect(api.passwordChecks, ['1234567890abcdef']);
+    expect(storage.appPasswords[storage.sites.single.id], '1234567890abcdef');
+    expect(storage.userAgents[storage.sites.single.id], 'my-monitor/1');
+    expect(api.loginCalls, 0);
+    expect(find.byType(ServerCard), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await click(tester, find.text('进入站点'));
+    expect(find.byType(ServerCard), findsOneWidget);
+    expect(api.sockets.length, 2);
+    expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
   testWidgets('320 宽深色大字体：站点、登录、条形列表无布局溢出', (tester) async {
     final api = FakeApi();
     await launch(

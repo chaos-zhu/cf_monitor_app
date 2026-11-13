@@ -111,6 +111,16 @@ void main() {
     );
     await click(tester, find.text('Add site'));
     expect(find.text('Connect a new site'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('connect-site')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(SingleChildScrollView).last,
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     await click(tester, find.text('Check and connect'));
     expect(find.text('Enter a site name'), findsOneWidget);
     expect(tester.takeException(), isNull);

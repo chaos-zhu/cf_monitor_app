@@ -90,7 +90,10 @@ class MonitorSession extends ChangeNotifier {
     refreshing = true;
     _notify();
     try {
-      WorkerApi.ensureSupported(config);
+      WorkerApi.ensureSupported(
+        config,
+        hasAppPassword: site.appPassword != null,
+      );
       final snapshot = await api.dashboard(
         site,
         token: token,
@@ -107,7 +110,10 @@ class MonitorSession extends ChangeNotifier {
       _fieldTimes.removeWhere((id, _) => !ids.contains(id));
       _fieldRevisions.removeWhere((id, _) => !ids.contains(id));
       config = config.merged(snapshot.config);
-      WorkerApi.ensureSupported(config);
+      WorkerApi.ensureSupported(
+        config,
+        hasAppPassword: site.appPassword != null,
+      );
       unsupported = false;
       applyUpdates(snapshot.reports, notify: false);
       _updateSummarySpeed();
@@ -441,9 +447,9 @@ class MonitorSession extends ChangeNotifier {
     try {
       final cfg = await api.config(site, token: token);
       if (_disposed || _suspended) return;
-      WorkerApi.ensureSupported(cfg);
+      WorkerApi.ensureSupported(cfg, hasAppPassword: site.appPassword != null);
       unsupported = false;
-      if (!cfg.isPublic && !cfg.authorized) {
+      if (!cfg.isPublic && !cfg.authorized && site.appPassword == null) {
         _handleAuthentication(
           const ApiFailure('请重新登录', kind: FailureKind.authentication),
         );

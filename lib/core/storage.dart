@@ -10,6 +10,10 @@ abstract class SiteStorage {
   Future<void> save(List<MonitorSite> sites);
   Future<String?> readToken(String id);
   Future<void> writeToken(String id, String? token);
+  Future<String?> readAppPassword(String id);
+  Future<void> writeAppPassword(String id, String? password);
+  Future<String?> readUserAgent(String id);
+  Future<void> writeUserAgent(String id, String? userAgent);
   Future<String?> readDefaultSiteId();
   Future<void> writeDefaultSiteId(String? id);
   Future<bool> readCompactLayout() => Future.value(false);
@@ -108,6 +112,20 @@ class DeviceSiteStorage extends SiteStorage {
       ? _secure.delete(key: 'cf_monitor.token.$id')
       : _secure.write(key: 'cf_monitor.token.$id', value: token);
   @override
+  Future<String?> readAppPassword(String id) =>
+      _secure.read(key: 'cf_monitor.app_password.$id');
+  @override
+  Future<void> writeAppPassword(String id, String? password) => password == null
+      ? _secure.delete(key: 'cf_monitor.app_password.$id')
+      : _secure.write(key: 'cf_monitor.app_password.$id', value: password);
+  @override
+  Future<String?> readUserAgent(String id) =>
+      _secure.read(key: 'cf_monitor.user_agent.$id');
+  @override
+  Future<void> writeUserAgent(String id, String? userAgent) => userAgent == null
+      ? _secure.delete(key: 'cf_monitor.user_agent.$id')
+      : _secure.write(key: 'cf_monitor.user_agent.$id', value: userAgent);
+  @override
   Future<Map<String, dynamic>?> readRates() async {
     final raw = (await SharedPreferences.getInstance()).getString(_ratesKey);
     if (raw == null) return null;
@@ -204,12 +222,22 @@ class SiteController extends ChangeNotifier {
     MonitorSite site, {
     String? token,
     bool replaceToken = false,
+    String? appPassword,
+    bool replaceAppPassword = false,
+    String? userAgent,
+    bool replaceUserAgent = false,
   }) => _write(() async {
     final previous = _sites.where((s) => s.id == site.id).firstOrNull;
     if (previous != null && previous.baseUrl != site.baseUrl) {
       await storage.writeToken(site.id, null);
+      await storage.writeAppPassword(site.id, null);
+      await storage.writeUserAgent(site.id, null);
     }
     if (replaceToken) await storage.writeToken(site.id, token);
+    if (replaceAppPassword) {
+      await storage.writeAppPassword(site.id, appPassword);
+    }
+    if (replaceUserAgent) await storage.writeUserAgent(site.id, userAgent);
     final index = _sites.indexWhere((s) => s.id == site.id);
     final next = [..._sites];
     if (index < 0) {
@@ -233,6 +261,8 @@ class SiteController extends ChangeNotifier {
 
   Future<void> remove(MonitorSite site) => _write(() async {
     await storage.writeToken(site.id, null);
+    await storage.writeAppPassword(site.id, null);
+    await storage.writeUserAgent(site.id, null);
     if (_defaultSiteId == site.id) {
       await storage.writeDefaultSiteId(null);
       _defaultSiteId = null;

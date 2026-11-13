@@ -64,11 +64,47 @@ void main() {
   });
   test('序列化不包含 Token 或密码', () {
     final encoded = siteA
-        .copyWith(status: SiteStatus.connected, lastVisit: DateTime(2026))
+        .copyWith(
+          status: SiteStatus.connected,
+          lastVisit: DateTime(2026),
+          appPassword: 'secret',
+        )
         .toJson();
     expect(encoded.keys, isNot(contains('token')));
     expect(encoded.keys, isNot(contains('password')));
+    expect(encoded.keys, isNot(contains('appPassword')));
     expect(MonitorSite.fromJson(encoded).baseUrl, siteA.baseUrl);
+  });
+  test('App 口令按站点隔离，改地址和删除站点时清理', () async {
+    final storage = MemoryStorage([siteA, siteB]);
+    final controller = SiteController(storage);
+    addTearDown(controller.dispose);
+    await controller.load();
+    await controller.save(
+      siteA,
+      appPassword: 'password-a',
+      replaceAppPassword: true,
+      userAgent: 'agent-a',
+      replaceUserAgent: true,
+    );
+    await controller.save(
+      siteB,
+      appPassword: 'password-b',
+      replaceAppPassword: true,
+      userAgent: 'agent-b',
+      replaceUserAgent: true,
+    );
+    await controller.save(siteA.copyWith(name: 'new'));
+    expect(await storage.readAppPassword('a'), 'password-a');
+    expect(await storage.readUserAgent('a'), 'agent-a');
+    await controller.save(siteA.copyWith(baseUrl: 'https://new.example.com'));
+    expect(await storage.readAppPassword('a'), isNull);
+    expect(await storage.readUserAgent('a'), isNull);
+    expect(await storage.readAppPassword('b'), 'password-b');
+    expect(await storage.readUserAgent('b'), 'agent-b');
+    await controller.remove(siteB);
+    expect(await storage.readAppPassword('b'), isNull);
+    expect(await storage.readUserAgent('b'), isNull);
   });
 
   test('默认主页保存到设备偏好，重新创建存储后保留且可清除', () async {

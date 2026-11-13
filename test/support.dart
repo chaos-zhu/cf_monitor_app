@@ -105,6 +105,30 @@ class MemoryStorage extends SiteStorage {
   Future<void> writePreferences(Map<String, String> next) async =>
       preferences = {...next};
   final tokens = <String, String>{};
+  final appPasswords = <String, String>{};
+  final userAgents = <String, String>{};
+  @override
+  Future<String?> readUserAgent(String id) async => userAgents[id];
+  @override
+  Future<void> writeUserAgent(String id, String? userAgent) async {
+    if (userAgent == null) {
+      userAgents.remove(id);
+    } else {
+      userAgents[id] = userAgent;
+    }
+  }
+
+  @override
+  Future<String?> readAppPassword(String id) async => appPasswords[id];
+  @override
+  Future<void> writeAppPassword(String id, String? password) async {
+    if (password == null) {
+      appPasswords.remove(id);
+    } else {
+      appPasswords[id] = password;
+    }
+  }
+
   @override
   Future<String?> readDefaultSiteId() async => defaultSiteId;
   @override
@@ -159,6 +183,12 @@ class FakeSocket implements LiveConnection {
 }
 
 class FakeApi extends MonitorApi {
+  final passwordChecks = <String?>[];
+  @override
+  Future<void> validateAppPassword(MonitorSite site) async {
+    passwordChecks.add(site.appPassword);
+  }
+
   SiteConfig settings = publicConfig();
   Future<SiteConfig> Function(MonitorSite, String?)? configHandler;
   Future<DashboardSnapshot> Function()? dashboardHandler;

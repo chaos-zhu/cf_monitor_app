@@ -146,6 +146,16 @@ class AppStrings {
     '实时连接需要重新登录。': 'Sign in again to restore the live connection.',
     '实时速度': 'Live speed',
     '密码': 'Password',
+    '自定义 User-Agent（可选）': 'Custom User-Agent (optional)',
+    '输入站点安全规则允许的 User-Agent':
+        'Enter the User-Agent allowed by the site security rule',
+    'User-Agent 只能包含可打印 ASCII 字符':
+        'User-Agent must contain printable ASCII characters only',
+    'App 访问口令（可选）': 'App access password (optional)',
+    '输入站点的 App 访问口令': 'Enter the site app access password',
+    'App 访问口令须为 16-32 位可见 ASCII 字符': 'Use 16-32 visible ASCII characters',
+    'App 访问口令无效或请求被站点防护拦截':
+        'Invalid app password or request blocked by site protection',
     '密码不保存，登录凭证按站点独立存储':
         'Passwords are not saved. Sign-in tokens are stored separately for each site.',
     '将从当前站点删除“{0}”及其监控数据。服务器上的 Agent 不会自动卸载。':

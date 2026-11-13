@@ -41,6 +41,57 @@ void main() {
     api = WorkerApi(dio: Dio()..httpClientAdapter = transport);
   });
   tearDown(() => api.dispose());
+  test('App 口令按站点发送，受保护历史可用，错误口令被拒绝', () async {
+    final protectedSite = siteA.copyWith(
+      appPassword: '1234567890abcdef',
+      userAgent: 'custom-agent/1',
+    );
+    transport.status = 404;
+    await api.validateAppPassword(protectedSite);
+    expect(
+      transport.requests.single.headers['X-App-Password'],
+      '1234567890abcdef',
+    );
+    expect(transport.requests.single.uri.queryParameters['hours'], '48');
+    expect(transport.requests.single.headers['User-Agent'], 'custom-agent/1');
+    transport.status = 401;
+    await expectLater(
+      api.validateAppPassword(protectedSite),
+      throwsA(
+        isA<ApiFailure>().having(
+          (e) => e.kind,
+          'kind',
+          FailureKind.authentication,
+        ),
+      ),
+    );
+    transport.status = 200;
+    transport.reply = (_) => [];
+    await api.history(protectedSite, 'server', HistoryRange.values.last);
+    expect(
+      transport.requests.last.headers['X-App-Password'],
+      '1234567890abcdef',
+    );
+    transport.reply = (_) => {'is_public': true, 'authorization': false};
+    await api.config(siteB);
+    expect(
+      transport.requests.last.headers.containsKey('X-App-Password'),
+      isFalse,
+    );
+    expect(transport.requests.last.headers.containsKey('User-Agent'), isFalse);
+    WorkerApi.ensureSupported(
+      publicConfig({'turnstile_enabled': true}),
+      hasAppPassword: true,
+    );
+    expect(
+      () => WorkerApi.ensureSupported(
+        publicConfig({'turnstile_enabled': true}),
+        login: true,
+        hasAppPassword: true,
+      ),
+      throwsA(isA<ApiFailure>()),
+    );
+  });
   test('删除使用所属站点凭据和服务器 ID，失败响应不当作成功', () async {
     transport.reply = (_) => {'success': true};
     await api.deleteServer(siteB, 'server-id', token: 'token-b');

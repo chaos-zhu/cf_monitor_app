@@ -55,6 +55,8 @@ class MonitorSite {
     this.lastVisit,
     this.serverCount,
     this.onlineCount,
+    this.appPassword,
+    this.userAgent,
   });
   final String id;
   final String name;
@@ -63,6 +65,8 @@ class MonitorSite {
   final DateTime? lastVisit;
   final int? serverCount;
   final int? onlineCount;
+  final String? appPassword;
+  final String? userAgent;
   String get host => Uri.parse(baseUrl).host;
 
   MonitorSite copyWith({
@@ -72,6 +76,8 @@ class MonitorSite {
     DateTime? lastVisit,
     int? serverCount,
     int? onlineCount,
+    String? appPassword,
+    String? userAgent,
   }) => MonitorSite(
     id: id,
     name: name ?? this.name,
@@ -80,6 +86,8 @@ class MonitorSite {
     lastVisit: lastVisit ?? this.lastVisit,
     serverCount: serverCount ?? this.serverCount,
     onlineCount: onlineCount ?? this.onlineCount,
+    appPassword: appPassword ?? this.appPassword,
+    userAgent: userAgent ?? this.userAgent,
   );
 
   Map<String, dynamic> toJson() => {

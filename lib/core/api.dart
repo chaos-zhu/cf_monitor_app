@@ -31,10 +31,18 @@ abstract interface class LiveConnection {
 }
 
 class SocketConnection implements LiveConnection {
-  SocketConnection(Uri url, String? token)
-    : _channel = IOWebSocketChannel.connect(
+  SocketConnection(
+    Uri url,
+    String? token,
+    String? appPassword,
+    String? userAgent,
+  ) : _channel = IOWebSocketChannel.connect(
         url,
-        headers: token == null ? null : {'Authorization': 'Bearer $token'},
+        headers: {
+          if (token != null) 'Authorization': 'Bearer $token',
+          'X-App-Password': ?appPassword,
+          'User-Agent': ?userAgent,
+        },
         connectTimeout: const Duration(seconds: 15),
       );
   final IOWebSocketChannel _channel;
@@ -53,6 +61,7 @@ class SocketConnection implements LiveConnection {
 
 abstract class MonitorApi {
   Future<SiteConfig> config(MonitorSite site, {String? token});
+  Future<void> validateAppPassword(MonitorSite site);
   Future<String> login(MonitorSite site, String username, String password);
   Future<DashboardSnapshot> dashboard(
     MonitorSite site, {
@@ -127,6 +136,8 @@ class WorkerApi extends MonitorApi {
             'Accept': 'application/json',
             if (body != null) 'Content-Type': 'application/json',
             if (token != null) 'Authorization': 'Bearer $token',
+            if (site.appPassword != null) 'X-App-Password': site.appPassword,
+            if (site.userAgent != null) 'User-Agent': site.userAgent,
           },
         ),
       );
@@ -179,6 +190,26 @@ class WorkerApi extends MonitorApi {
   }
 
   @override
+  Future<void> validateAppPassword(MonitorSite site) async {
+    try {
+      await _request(
+        site,
+        '/api/history/all',
+        query: {'id': '__cf_monitor_password_check__', 'hours': 48},
+      );
+    } on ApiFailure catch (e) {
+      if (e.status == 404) return;
+      if (e.status == 401 || e.status == 403) {
+        throw const ApiFailure(
+          'App 访问口令无效或请求被站点防护拦截',
+          kind: FailureKind.authentication,
+        );
+      }
+      rethrow;
+    }
+  }
+
+  @override
   Future<SiteConfig> config(MonitorSite site, {String? token}) async {
     final json = jsonMap(await _request(site, '/api/config', token: token));
     if (!json.containsKey('is_public') || !json.containsKey('authorization')) {
@@ -212,8 +243,12 @@ class WorkerApi extends MonitorApi {
     return token;
   }
 
-  static void ensureSupported(SiteConfig cfg, {bool login = false}) {
-    if (cfg.globalChallenge) {
+  static void ensureSupported(
+    SiteConfig cfg, {
+    bool login = false,
+    bool hasAppPassword = false,
+  }) {
+    if (cfg.globalChallenge && !hasAppPassword && !login) {
       throw const ApiFailure(
         '该站点启用了全局人机验证，当前版本暂不支持连接',
         kind: FailureKind.unsupported,
@@ -366,7 +401,7 @@ class WorkerApi extends MonitorApi {
     if (!HistoryRange.values.any((r) => r.hours == range.hours)) {
       throw const ApiFailure('不支持的历史时间范围', kind: FailureKind.protocol);
     }
-    if (range.hours > 24 && token == null) {
+    if (range.hours > 24 && token == null && site.appPassword == null) {
       throw const ApiFailure(
         '查看超过 24 小时的历史数据需要登录',
         kind: FailureKind.permission,
@@ -397,7 +432,7 @@ class WorkerApi extends MonitorApi {
     final url = endpoint(site, '/api/ws', {
       'subscribe': 'all',
     }).replace(scheme: 'wss');
-    return SocketConnection(url, token);
+    return SocketConnection(url, token, site.appPassword, site.userAgent);
   }
 
   @override

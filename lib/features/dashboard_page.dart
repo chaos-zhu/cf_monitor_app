@@ -70,13 +70,17 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
       return;
     }
     final controller = ref.read(sitesProvider);
-    final site = session.site;
+    var site = session.site;
     try {
       var token = await controller.token(site.id);
+      final appPassword = await controller.storage.readAppPassword(site.id);
+      final userAgent = await controller.storage.readUserAgent(site.id);
+      site = site.copyWith(appPassword: appPassword, userAgent: userAgent);
+      session.site = site;
       if (!mounted || _leaving) return;
       final cfg = await ref.read(apiProvider).config(site, token: token);
       if (!mounted || _leaving) return;
-      WorkerApi.ensureSupported(cfg);
+      WorkerApi.ensureSupported(cfg, hasAppPassword: site.appPassword != null);
       session.config = cfg;
       if (token != null && !cfg.authorized) {
         await controller.clearToken(site.id);
@@ -84,7 +88,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
       }
       if (!mounted || _leaving) return;
       session.token = token;
-      if (!cfg.isPublic && !cfg.authorized) {
+      if (!cfg.isPublic && !cfg.authorized && site.appPassword == null) {
         await controller.save(site.copyWith(status: SiteStatus.loginRequired));
         if (!mounted || _leaving) return;
         final connected = await _login();
@@ -337,7 +341,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
             .read(apiProvider)
             .config(session.site, token: token);
         if (!mounted || _leaving) return false;
-        WorkerApi.ensureSupported(cfg);
+        WorkerApi.ensureSupported(
+          cfg,
+          hasAppPassword: session.site.appPassword != null,
+        );
         session.config = cfg;
         if (!cfg.authorized) token = null;
       } on ApiFailure catch (e) {
