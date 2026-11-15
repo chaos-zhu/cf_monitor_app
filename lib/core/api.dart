@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:web_socket_channel/io.dart';
 import 'models.dart';
@@ -43,8 +44,13 @@ class SocketConnection implements LiveConnection {
           'X-App-Password': ?appPassword,
           'User-Agent': ?userAgent,
         },
+        customClient: userAgent == null ? null : _clientWithoutDefaultUserAgent,
         connectTimeout: const Duration(seconds: 15),
       );
+  // WebSocket.connect adds headers to the client's default User-Agent instead
+  // of replacing it. Keep this client shared, but set each site's UA per request.
+  static final HttpClient _clientWithoutDefaultUserAgent = HttpClient()
+    ..userAgent = null;
   final IOWebSocketChannel _channel;
   @override
   Future<void> get ready => _channel.ready;
